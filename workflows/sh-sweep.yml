@@ -1,0 +1,42 @@
+# Workflow Cezara uruchamiany co godzinę przez automatyzację w repozytorium sh-control.
+# Cezar nie ma zdarzenia "PR zmergowany", więc merge'e wykrywa ten przegląd:
+# bramka sprawdza, czy od ostatniego przeglądu coś się zmieniło; jeśli nie,
+# opiekun tylko sprząta VPS, a kierownik kończy od razu.
+# Co 6 godzin przegląd jest pełny niezależnie od zmian (wykrywanie utkniętej pracy).
+#
+# Uruchamiać z flagą Autonomous.
+
+name: sh-sweep
+description: Godzinny przegląd wszystkich projektów. Opiekun obsługuje zamknięte PR, kierownik planuje i wypuszcza pracę.
+steps:
+  - id: gate
+    name: Bramka przeglądu
+    command: |
+      mkdir -p .ai/sh-run
+      ex=$(git rev-parse --git-path info/exclude)
+      grep -qx '.ai/sh-run/' "$ex" 2>/dev/null || echo '.ai/sh-run/' >> "$ex"
+      rm -f .ai/sh-run/idle
+      h=$(date +%-H)
+      if [ $((h % 6)) -eq 0 ]; then echo "Pełny przegląd (co 6 godzin)."; exit 0; fi
+      owner=$(gh api user -q .login) || exit 0
+      since=$(date -u -d '-70 minutes' +%Y-%m-%dT%H:%M:%SZ)
+      p=$(gh search prs --owner "$owner" --updated ">=$since" --limit 1 --json number --jq length 2>/dev/null)
+      i=$(gh search issues --owner "$owner" --updated ">=$since" --limit 1 --json number --jq length 2>/dev/null)
+      if [ "${p:-0}" = "0" ] && [ "${i:-0}" = "0" ]; then
+        echo "Brak zmian od ostatniego przeglądu." | tee .ai/sh-run/idle
+      else
+        echo "Wykryto zmiany, pełny przegląd."
+      fi
+      exit 0
+
+  - id: caretaker
+    name: Opiekun
+    prompt: "Tryb S. Przegląd zamkniętych PR na koncie właściciela."
+    skill: sh-opiekun
+    model: haiku
+
+  - id: manager
+    name: Kierownik
+    prompt: "Tryb R. Przegląd wszystkich projektów."
+    skill: sh-kierownik
+    model: opus

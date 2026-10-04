@@ -24,14 +24,14 @@ Kod, commity i nazwy po angielsku. Opisy PR i komentarze po polsku.
 
 ## Przygotowanie
 
-1. Utwórz katalog `.ai/sh-run/` i dopisz linię `.ai/sh-run/` do `.git/info/exclude`, jeśli jej tam nie ma.
+1. Utwórz katalog `.ai/sh-run/` i dopisz linię `.ai/sh-run/` do pliku wskazanego przez `git rev-parse --git-path info/exclude`, jeśli jej tam nie ma. W worktree `.git` jest plikiem, nie katalogiem, więc nie zgaduj ścieżki.
 2. Ustal numer issue z treści zadania.
 3. Przeczytaj issue, wskazany fragment specyfikacji, `AGENTS.md` i `.ai/agentic.config.json` (komendy walidacji).
 
 ## Wybór trybu
 
 1. **Poprawki w tym przebiegu:** do promptu dołączony jest raport testera albo werdykt reviewera (Cezar dopisuje je przy powrocie z bramki). PR już istnieje, jego numer jest w `.ai/sh-run/pr`.
-2. **Poprawki od właściciela:** dla issue istnieje otwarty PR z etykietą `do-poprawki`. Tę etykietę ustawia wyłącznie właściciel; `changes-requested` należy do reviewera i nie uruchamia tego trybu.
+2. **Poprawki od właściciela:** issue ma etykietę `do-poprawki` i istnieje dla niego otwarty PR (z „Closes #{numer}”). Tę etykietę ustawia wyłącznie właściciel, na issue; `changes-requested` należy do reviewera i nie uruchamia tego trybu.
 3. **Nowy PR, błąd:** issue ma etykietę `bug`.
 4. **Nowy PR, funkcja:** issue ma etykietę `feature`.
 
@@ -66,7 +66,7 @@ Kod, commity i nazwy po angielsku. Opisy PR i komentarze po polsku.
 1. Pobierz gałąź PR i pracuj na niej: `git fetch origin {gałąź}` i `git checkout -B {gałąź} origin/{gałąź}`.
 2. Zapisz numer PR w `.ai/sh-run/pr`.
 3. Zbierz uwagi właściciela: komentarze w PR i komentarze do linii kodu dodane po ostatnim commicie, które nie zaczynają się od „🤖”. Jeśli takich nie ma, skomentuj PR prośbą o opisanie poprawek, dodaj `blocked` i zakończ.
-4. Dalej jak w trybie 1. Na koniec zdejmij `do-poprawki` i dodaj `review`.
+4. Dalej jak w trybie 1. Na koniec zdejmij `do-poprawki` z issue, a do PR dodaj `review`.
 
 ## Luka w specyfikacji
 

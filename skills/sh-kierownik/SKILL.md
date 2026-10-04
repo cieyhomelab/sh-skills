@@ -52,7 +52,7 @@ Jedynym źródłem stanu są etykiety i powiązania na GitHubie. Nie prowadzisz 
 
 ## Tryby
 
-- **Tryb P, planowanie:** zadanie wskazuje repozytorium, w którym właśnie zmergowano PR architekta (etykieta `architecture`).
+- **Tryb P, planowanie:** zadanie wskazuje repozytorium, w którym zmergowano PR architekta (etykieta `architecture`). Zwykle wchodzisz w ten tryb z kroku R0 przeglądu.
 - **Tryb R, przegląd:** każde inne uruchomienie, czyli po merge'u PR z kodem, po pojawieniu się nowego issue i cyklicznie. Przegląd obejmuje zawsze wszystkie projekty.
 
 Każde uruchomienie musi być idempotentne: dwa uruchomienia jedno po drugim nie mogą niczego zdublować.
@@ -77,9 +77,15 @@ Każde uruchomienie musi być idempotentne: dwa uruchomienia jedno po drugim nie
 
 Wykonaj kolejno dla wszystkich zarządzanych projektów.
 
+Jeśli istnieje plik `.ai/sh-run/idle`, zakończ bez żadnych działań: bramka przeglądu nie wykryła zmian.
+
+### R0. Zaplanowanie nowych projektów
+
+Znajdź zmergowane w ostatnich 30 dniach PR z etykietą `architecture` na koncie właściciela, pod którymi nie ma twojego komentarza z listą utworzonych issues (krok 9 trybu P). Dla każdego wykonaj tryb P w jego repozytorium; specyfikację i plan czytasz przez `gh`, bez klonowania do bieżącego katalogu.
+
 ### R1. Nowe issues od właściciela
 
-Issue bez etykiet `planned`, `ready`, `in-progress` i bez znacznika `sh-spec` to zgłoszenie właściciela.
+Issue bez etykiet `planned`, `ready`, `in-progress`, `blocked`, `sh-architekt`, `spec-gap` i bez znacznika `sh-spec` to zgłoszenie właściciela.
 
 - Opisuje błąd: dodaj `bug`, ryzyko, priorytet (`priority-high`, gdy psuje główny scenariusz; inaczej `priority-medium`) i `planned`.
 - Opisuje nową funkcję albo zmianę zakresu: nie planuj jej. Skomentuj, że nowe funkcje przechodzą przez analityka, i dodaj `blocked`.

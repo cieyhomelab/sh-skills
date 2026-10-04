@@ -1,5 +1,6 @@
 ---
 name: sh-analityk
+interactive: true
 description: Analityk autonomicznego software house'u. Prowadzi z właścicielem wywiad Q&A o nowym pomyśle albo o luce w specyfikacji, pisze specyfikację funkcjonalną i otwiera PR ze specyfikacją, którego merge jest bramką A. Uruchamiać wyłącznie w trybie nieautonomicznym.
 ---
 

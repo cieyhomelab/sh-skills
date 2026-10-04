@@ -31,7 +31,7 @@ Ustal tryb na podstawie repozytorium:
 
 ## Krok 1. Zrozumienie
 
-1. Znajdź zatwierdzoną specyfikację: ostatnio zmergowany plik w katalogu specyfikacji (`paths.specs` z `.ai/agentic.config.json` albo `.ai/specs`). Jeśli zadanie wskazuje konkretny plik, użyj go.
+1. Znajdź zatwierdzoną specyfikację. Zwykle uruchamia cię issue z etykietą `sh-architekt`, utworzone przez opiekuna po merge'u PR ze specyfikacją; ścieżka specyfikacji i link do tego PR są w treści issue. Jeśli zadanie nie wskazuje issue ani pliku, weź ostatnio zmergowany plik w katalogu specyfikacji (`paths.specs` z `.ai/agentic.config.json` albo `.ai/specs`).
 2. Przeczytaj ją w całości. Wypisz dla siebie: platformy, role, integracje zewnętrzne, dane osobowe, wymagania niefunkcjonalne, etapy dostarczenia.
 3. W trybie S przeczytaj `AGENTS.md`, istniejące decyzje w `docs/adr/` i strukturę kodu.
 
@@ -119,6 +119,7 @@ Na czystym klonie swojej gałęzi:
    - wynik weryfikacji z kroku 7
    - sekcja **Wymagane sekrety**: zmienne, które właściciel musi dodać do pliku sekretów przed merge'em, albo „brak”
    - zdanie: „Merge tego PR odblokowuje kierownika (bramka D).”
+   - „Closes #{numer}”, jeśli uruchomiło cię issue z etykietą `sh-architekt`
 4. Nie merguj. Zakończ zadanie.
 
 ## Eskalacja

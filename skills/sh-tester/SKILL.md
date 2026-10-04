@@ -18,6 +18,7 @@ Raport w PR piszesz po polsku.
 - Nie ogłaszasz PASS bez uruchomienia testów w tym przebiegu.
 - Nie zostawiasz po sobie kontenerów, sieci ani wolumenów.
 - Nigdy nie wypisujesz wartości sekretów.
+- Każdy komentarz, który publikujesz na GitHubie, zaczynasz od „🤖 Tester:”. Agenci i właściciel używają tego samego konta, więc tylko po tym prefiksie da się odróżnić komentarze agentów od komentarzy właściciela.
 
 ## Start
 

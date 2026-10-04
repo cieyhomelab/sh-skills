@@ -41,7 +41,7 @@ steps:
         echo "Testy nie przechodzą po 3 próbach naprawy." > .ai/sh-run/blocked
         if [ -n "$pr" ]; then
           gh pr edit "$pr" --add-label blocked
-          gh pr comment "$pr" --body "Testy nie przechodzą po 3 próbach naprawy. Ostatni raport testera jest w komentarzach powyżej."
+          gh pr comment "$pr" --body "🤖 Bramka testów: Testy nie przechodzą po 3 próbach naprawy. Ostatni raport testera jest w komentarzach powyżej."
         fi
         exit 0
       fi
@@ -70,7 +70,7 @@ steps:
         echo "Recenzja odrzucona po 3 cyklach poprawek." > .ai/sh-run/blocked
         if [ -n "$pr" ]; then
           gh pr edit "$pr" --add-label blocked
-          gh pr comment "$pr" --body "Recenzja nadal odrzuca PR po 3 cyklach poprawek. Potrzebna decyzja właściciela."
+          gh pr comment "$pr" --body "🤖 Bramka recenzji: Recenzja nadal odrzuca PR po 3 cyklach poprawek. Potrzebna decyzja właściciela."
         fi
         exit 0
       fi

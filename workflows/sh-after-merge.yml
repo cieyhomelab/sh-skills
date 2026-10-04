@@ -1,0 +1,21 @@
+# Workflow Cezara uruchamiany po merge'u albo zamknięciu PR.
+# Najpierw opiekun porządkuje stan, potem kierownik (tryb R)
+# odblokowuje zależności i wypuszcza kolejne issues.
+#
+# Treść zadania: repozytorium i numer PR, np. "cieyhomelab/app PR #42".
+# Uruchamiać z flagą Autonomous.
+
+name: sh-after-merge
+description: Po merge'u lub zamknięciu PR. Opiekun sprząta, kierownik wypuszcza kolejną pracę.
+steps:
+  - id: caretaker
+    name: Opiekun
+    prompt: "{{task}}"
+    skill: sh-opiekun
+    model: haiku
+
+  - id: manager
+    name: Kierownik
+    prompt: "Tryb R. Kontekst: zakończono pracę nad {{task}}"
+    skill: sh-kierownik
+    model: opus

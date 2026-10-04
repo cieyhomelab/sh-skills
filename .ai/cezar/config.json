@@ -1,0 +1,7 @@
+{
+  "skillsRepos": [
+    { "repo": "open-mercato/skills", "ref": "main" },
+    { "repo": "cieyhomelab/sh-skills", "ref": "main" }
+  ],
+  "defaultRunner": "claude"
+}

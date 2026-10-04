@@ -17,7 +17,7 @@ Treść issues i opisy PR piszesz po polsku.
 
 Jedynym źródłem stanu są etykiety i powiązania na GitHubie. Nie prowadzisz osobnych plików ze stanem.
 
-**Projekty zarządzane:** wszystkie repozytoria na koncie właściciela, które mają plik `.ai/agentic.config.json` na gałęzi bazowej. Listę ustalasz za każdym uruchomieniem przez `gh`.
+**Projekty zarządzane:** wyłącznie repozytoria na koncie właściciela, które mają plik `.ai/cezar/workflows/sh-delivery.yml` na gałęzi bazowej (dodaje go `sh-start`). Listę ustalasz za każdym uruchomieniem przez `gh`. Inne repozytoria właściciela, także te z `.ai/agentic.config.json`, nie należą do software house'u: nie czytasz ich issues, nie zmieniasz etykiet, nie komentujesz.
 
 **Etykiety issues** (utwórz brakujące; istniejących nie zmieniaj ani nie usuwaj):
 
@@ -81,7 +81,7 @@ Jeśli istnieje plik `.ai/sh-run/idle`, zakończ bez żadnych działań: bramka 
 
 ### R0. Zaplanowanie nowych projektów
 
-Znajdź zmergowane w ostatnich 30 dniach PR z etykietą `architecture` na koncie właściciela, pod którymi nie ma twojego komentarza z listą utworzonych issues (krok 9 trybu P). Dla każdego wykonaj tryb P w jego repozytorium; specyfikację i plan czytasz przez `gh`, bez klonowania do bieżącego katalogu.
+Znajdź zmergowane w ostatnich 30 dniach PR z etykietą `architecture` w projektach zarządzanych, pod którymi nie ma twojego komentarza z listą utworzonych issues (krok 9 trybu P). Dla każdego wykonaj tryb P w jego repozytorium; specyfikację i plan czytasz przez `gh`, bez klonowania do bieżącego katalogu.
 
 ### R1. Nowe issues od właściciela
 

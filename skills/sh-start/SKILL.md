@@ -9,7 +9,7 @@ description: Jednorazowa konfiguracja repozytorium dla autonomicznego software h
 
 Przygotowujesz repozytorium do pracy autonomicznego software house'u. Uruchamia cię właściciel jeden raz na repozytorium, zaraz po zarejestrowaniu go w Cezarze. Każde uruchomienie musi być idempotentne: drugie uruchomienie niczego nie dubluje, tylko uzupełnia braki.
 
-Właściciel skille i workflow trzyma w repozytorium `{login}/sh-skills`, gdzie `{login}` to wynik `gh api user -q .login`.
+Właściciel skille i workflow trzyma w repozytorium `{login}/sh-skills`, gdzie `{login}` to wynik `gh api user -q .login`. Skille są zainstalowane globalnie na VPS (`~/.claude/skills`), więc repozytorium nie potrzebuje własnej konfiguracji skilli; nie twórz `.ai/cezar/config.json`.
 
 ## Granice
 
@@ -33,20 +33,8 @@ Jeśli repozytorium nie ma żadnego commita, zatrzymaj się i poproś właścici
 
 ### P2. Pliki Cezara
 
-1. `.ai/cezar/config.json`: jeśli nie istnieje, utwórz go z treścią poniżej. Jeśli istnieje, dopisz brakujące repozytoria do `skillsRepos`, zachowując pozostałe klucze.
-
-```json
-{
-  "skillsRepos": [
-    { "repo": "open-mercato/skills", "ref": "main" },
-    { "repo": "{login}/sh-skills", "ref": "main" }
-  ],
-  "defaultRunner": "claude"
-}
-```
-
-2. `.ai/cezar/workflows/sh-delivery.yml`: skopiuj aktualną wersję z `{login}/sh-skills`, ścieżka `workflows/sh-delivery.yml` (`gh api repos/{login}/sh-skills/contents/workflows/sh-delivery.yml --jq .content | base64 -d`). Nadpisz, jeśli się różni.
-3. Jeśli coś się zmieniło, zacommituj na gałąź bazową z komunikatem `chore: konfiguracja software house` i wypchnij. Potem zaktualizuj główną kopię repozytorium, z której korzysta Cezar (jej katalog to pierwsza pozycja z `git worktree list`; wykonaj w nim `git pull --ff-only`), bo Cezar czyta workflow i konfigurację z niej.
+1. `.ai/cezar/workflows/sh-delivery.yml`: skopiuj aktualną wersję z `{login}/sh-skills`, ścieżka `workflows/sh-delivery.yml` (`gh api repos/{login}/sh-skills/contents/workflows/sh-delivery.yml --jq .content | base64 -d`). Nadpisz, jeśli się różni.
+2. Jeśli coś się zmieniło, zacommituj na gałąź bazową z komunikatem `chore: konfiguracja software house` i wypchnij. Potem zaktualizuj główną kopię repozytorium, z której korzysta Cezar (jej katalog to pierwsza pozycja z `git worktree list`; wykonaj w nim `git pull --ff-only`), bo Cezar czyta workflow i konfigurację z niej.
 
 ### P3. Etykiety
 
@@ -123,9 +111,8 @@ Napisz właścicielowi: co dodano do repozytorium, które etykiety utworzono, li
 To repozytorium nie zawiera kodu. Służy jako miejsce, w którym działa godzinny przegląd wszystkich projektów.
 
 1. Gałąź bazowa jak w P1.
-2. `.ai/cezar/config.json` jak w P2.1.
-3. `.ai/cezar/workflows/sh-sweep.yml`: skopiuj z `{login}/sh-skills`, ścieżka `workflows/sh-sweep.yml`. Commit, push i aktualizacja głównej kopii jak w P2.3.
-4. Automatyzacja (utwórz albo zaktualizuj, potem włącz):
+2. `.ai/cezar/workflows/sh-sweep.yml`: skopiuj z `{login}/sh-skills`, ścieżka `workflows/sh-sweep.yml`. Commit, push i aktualizacja głównej kopii jak w P2.2.
+3. Automatyzacja (utwórz albo zaktualizuj, potem włącz):
 
 ```json
 {
@@ -142,5 +129,5 @@ To repozytorium nie zawiera kodu. Służy jako miejsce, w którym działa godzin
 }
 ```
 
-5. Uruchom go raz od razu (`node "$CEZ_BIN" automation run <id>`), żeby obsłużyć to, co już czeka.
-6. Raport: identyfikator i link automatyzacji, najbliższe uruchomienie, wynik pierwszego przebiegu.
+4. Uruchom go raz od razu (`node "$CEZ_BIN" automation run <id>`), żeby obsłużyć to, co już czeka.
+5. Raport: identyfikator i link automatyzacji, najbliższe uruchomienie, wynik pierwszego przebiegu.

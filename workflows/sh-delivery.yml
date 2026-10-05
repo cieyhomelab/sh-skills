@@ -42,6 +42,7 @@ steps:
         if [ -n "$pr" ]; then
           gh pr edit "$pr" --add-label blocked
           gh pr comment "$pr" --body "🤖 Bramka testów: Testy nie przechodzą po 3 próbach naprawy. Ostatni raport testera jest w komentarzach powyżej."
+          sh-notify blocked "$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null)" "$pr"
         fi
         exit 0
       fi
@@ -62,7 +63,12 @@ steps:
     command: |
       [ -f .ai/sh-run/blocked ] && exit 0
       v=$(head -n1 .ai/sh-run/review-verdict 2>/dev/null)
-      [ "$v" = "APPROVE" ] && exit 0
+      repo=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null)
+      if [ "$v" = "APPROVE" ]; then
+        pr=$(cat .ai/sh-run/pr 2>/dev/null)
+        [ -n "$pr" ] && [ -n "$repo" ] && sh-notify merge "$repo" "$pr"
+        exit 0
+      fi
       n=$(( $(cat .ai/sh-run/review-cycle 2>/dev/null || echo 0) + 1 ))
       echo "$n" > .ai/sh-run/review-cycle
       if [ "$n" -gt 3 ]; then
@@ -71,6 +77,7 @@ steps:
         if [ -n "$pr" ]; then
           gh pr edit "$pr" --add-label blocked
           gh pr comment "$pr" --body "🤖 Bramka recenzji: Recenzja nadal odrzuca PR po 3 cyklach poprawek. Potrzebna decyzja właściciela."
+          sh-notify blocked "$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null)" "$pr"
         fi
         exit 0
       fi

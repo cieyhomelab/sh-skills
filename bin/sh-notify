@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+# sh-notify — powiadomienie push o bramce software house'u przez cezar-push.
+#
+# Użycie: sh-notify <spec|merge|blocked> <owner/repo> <numer issue lub PR> [tytuł]
+#
+#   spec     PR ze specyfikacją czeka na zatwierdzenie (bramka A)
+#   merge    PR czeka na merge (bramka D)
+#   blocked  issue lub PR z etykietą blocked czeka na decyzję właściciela
+#
+# Wysyła POST na loopbackowy endpoint /m/push/gate sidecara cezar-push, uwierzytelniony
+# tokenem z pliku ~/.cezar-push/gate-token. Nigdy nie kończy się błędem: brak sidecara,
+# tokenu albo endpointu to ostrzeżenie na stderr, żeby powiadomienie nie zatrzymało pracy.
+set -u
+
+gate=${1:-}
+repo=${2:-}
+num=${3:-}
+title=${4:-}
+
+warn() { echo "sh-notify: $*" >&2; exit 0; }
+
+case "$gate" in spec|merge|blocked) ;; *) warn "nieznany typ '$gate' (spec, merge, blocked)";; esac
+[ -n "$repo" ] && [ -n "$num" ] || warn "podaj repozytorium i numer"
+case "$num" in ''|*[!0-9]*) warn "numer musi być liczbą: '$num'";; esac
+
+info=$(gh api "repos/$repo/issues/$num" --jq '[.html_url, .title] | @tsv' 2>/dev/null || true)
+url=$(printf '%s' "$info" | cut -f1)
+[ -n "$url" ] || url="https://github.com/$repo/issues/$num"
+[ -n "$title" ] || title=$(printf '%s' "$info" | cut -f2-)
+
+token_file="${CEZAR_PUSH_STATE_DIR:-$HOME/.cezar-push}/gate-token"
+[ -r "$token_file" ] || warn "brak $token_file, powiadomienie pominięte"
+
+body=$(GATE="$gate" REPO="$repo" NUM="$num" TITLE="$title" URL="$url" python3 -c '
+import json, os
+print(json.dumps({"gate": os.environ["GATE"], "repo": os.environ["REPO"], "number": int(os.environ["NUM"]),
+                  "title": os.environ["TITLE"][:100], "url": os.environ["URL"]}))')
+
+code=$(curl -s -o /dev/null -w '%{http_code}' -m 10 -X POST \
+  "${CEZAR_PUSH_URL:-http://127.0.0.1:4330}/m/push/gate" \
+  -H 'Content-Type: application/json' \
+  -H "X-Cezar-Push-Token: $(cat "$token_file")" \
+  --data "$body" || echo 000)
+
+case "$code" in
+  2*) echo "sh-notify: wysłano ($gate $repo#$num)" ;;
+  *) warn "cezar-push odpowiedział $code, powiadomienie pominięte" ;;
+esac
+exit 0

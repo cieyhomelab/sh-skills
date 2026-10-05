@@ -20,10 +20,25 @@ Właściciel skille i workflow trzyma w repozytorium `{login}/sh-skills`, gdzie 
 
 ## Krok 1. Rodzaj repozytorium
 
-- Nazwa repozytorium to `sh-control`: przejdź do sekcji „Repozytorium sh-control”.
-- Każde inne: przejdź do sekcji „Projekt”.
+Najpierw wykonaj krok 2, potem:
+
+- nazwa repozytorium to `sh-control`: przejdź do sekcji „Repozytorium sh-control”,
+- każde inne: przejdź do sekcji „Projekt”.
 
 Jeśli `CEZ_BIN` nie jest ustawione albo `node "$CEZ_BIN" automation schema` zwraca błąd, zatrzymaj się i zgłoś, że automatyzacje są niedostępne w tym Cezarze.
+
+## Krok 2. Środowisko serwera
+
+Sprawdź i zapisz wynik każdego punktu. Niczego nie naprawiaj sam: brak zgłoś w raporcie końcowym jako pierwszy punkt, z poleceniem, które właściciel ma wykonać.
+
+| Sprawdzenie | Polecenie | Oczekiwany wynik |
+|---|---|---|
+| Tożsamość gita | `git config --global user.name` i `user.email` | oba niepuste |
+| Docker | `docker ps` | bez `permission denied` |
+| GitHub | `gh auth status` | zalogowany |
+| Powiadomienia | `command -v sh-notify` | ścieżka do skryptu |
+
+Bez Dockera tester nie uruchomi testów E2E, a bez tożsamości gita agenci nie zrobią commita. Jeśli brakuje któregoś z tych dwóch, skonfiguruj repozytorium, ale automatyzacje zostaw wyłączone i napisz to wyraźnie w raporcie.
 
 ## Projekt
 
@@ -98,13 +113,17 @@ Przeczytaj `node "$CEZ_BIN" automation schema` i `node "$CEZ_BIN" automation lis
 }
 ```
 
-Dla każdej automatyzacji uruchom `node "$CEZ_BIN" automation check <id>` i zanotuj wynik. Następnie włącz każdą (`enable <id>`): właściciel zlecił włączenie, uruchamiając ten skill.
+Dla każdej automatyzacji uruchom `node "$CEZ_BIN" automation check <id>` i zanotuj wynik. Następnie włącz każdą (`enable <id>`): właściciel zlecił włączenie, uruchamiając ten skill. Wyjątek: gdy krok 2 wykazał brak Dockera albo tożsamości gita, zostaw je wyłączone.
 
-Włączenie ustala punkt startowy na teraz: issues, które już mają etykietę, nie zostaną podjęte. Jeśli w repozytorium są otwarte issues z etykietą `ready` bez `in-progress`, zdejmij im `ready` i dodaj ją ponownie, żeby automatyzacja je zobaczyła. Tak samo z `sh-architekt`.
+Włączenie ustala punkt startowy na teraz: issues, które już mają etykietę, nie zostaną podjęte. Jeśli w repozytorium są otwarte issues z etykietą `ready` bez `in-progress`, zdejmij im `ready` i dodaj ją ponownie, żeby automatyzacja je zobaczyła. Tak samo z otwartymi issues `sh-architekt`, ale tylko gdy w repozytorium nie ma jeszcze PR z etykietą `architecture` utworzonego po tym issue; inaczej architekt ruszyłby drugi raz.
 
 ### P5. Raport
 
-Napisz właścicielowi: co dodano do repozytorium, które etykiety utworzono, listę automatyzacji z identyfikatorami, linkami i wynikiem podglądu, oraz które issues zostały ponownie oznaczone. Przypomnij, że repozytorium `sh-control` z godzinnym przeglądem musi istnieć, inaczej po merge'ach nic nie ruszy dalej.
+Napisz właścicielowi: co dodano do repozytorium, które etykiety utworzono, listę automatyzacji z identyfikatorami, linkami i wynikiem podglądu, oraz które issues zostały ponownie oznaczone. Przypomnij, że repozytorium `sh-control` z godzinnym przeglądem musi istnieć, inaczej po merge'ach nic nie ruszy dalej. Dodaj trzy zasady pracy właściciela:
+
+- PR z kodem merguj wyłącznie z etykietą `merge-queue`; PR z kodem bez niej nie przeszedł testów albo recenzji (PR ze specyfikacją, etykieta `spec`, i z architekturą, etykieta `architecture`, tej etykiety nie dostają i merguje się je po przeczytaniu),
+- konflikt albo uwagi do PR zgłaszaj etykietą `do-poprawki` na issue i komentarzem w PR, nie poleceniem w sesji agenta,
+- analityka uruchamiaj zawsze z wyłączoną flagą Autonomous.
 
 ## Repozytorium sh-control
 

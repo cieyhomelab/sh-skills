@@ -22,7 +22,10 @@ steps:
       since=$(date -u -d '-70 minutes' +%Y-%m-%dT%H:%M:%SZ)
       p=$(gh search prs --owner "$owner" --updated ">=$since" --limit 1 --json number --jq length 2>/dev/null)
       i=$(gh search issues --owner "$owner" --updated ">=$since" --limit 1 --json number --jq length 2>/dev/null)
-      if [ "${p:-0}" = "0" ] && [ "${i:-0}" = "0" ]; then
+      old=$(date -u -d '-90 minutes' +%Y-%m-%dT%H:%M:%SZ)
+      s=$(gh search prs --owner "$owner" --state open --label review --updated "<$old" --limit 1 --json number --jq length 2>/dev/null)
+      c=$(gh search prs --owner "$owner" --state open --label changes-requested --updated "<$old" --limit 1 --json number --jq length 2>/dev/null)
+      if [ "${p:-0}" = "0" ] && [ "${i:-0}" = "0" ] && [ "${s:-0}" = "0" ] && [ "${c:-0}" = "0" ]; then
         echo "Brak zmian od ostatniego przeglądu." | tee .ai/sh-run/idle
       else
         echo "Wykryto zmiany, pełny przegląd."

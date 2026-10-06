@@ -1,76 +1,158 @@
-# Software house — instalacja i obsługa
+# sh-skills — an autonomous software house on Claude Code
 
-Oct 4, 2026 · @Maciej Kulesza
+A set of Claude Code skills that act as the roles of a small software team, orchestrated by
+[Cezar](https://github.com/open-mercato/cezar), an open-source agent framework by Open Mercato.
+I describe an idea; the agents write the spec, design the architecture, cut the work into issues,
+and implement, test and review every issue. My job is answering the analyst's questions and
+merging PRs on GitHub. I can step in on any PR with my own comments.
 
-## Instalacja
+**Example output:** [cieyhomelab/kulki](https://github.com/cieyhomelab/kulki), a browser
+puzzle game built by this pipeline in two days, through 42 merged PRs
+([play it](https://cieyhomelab.github.io/kulki/)).
 
-Instalacja to pięć kroków; kroki 1, 2 i 5 robisz raz, kroki 3 i 4 w każdym nowym projekcie.
+## How it works
 
-1. **Repozytorium skilli.** Załóż na GitHubie repozytorium `cieyhomelab/sh-skills` i wrzuć do niego zawartość archiwum `sh-skills.zip`: katalogi `skills/` i `workflows/`. Układ jest taki sam jak w `open-mercato/skills`.
-2. **Skille Open Mercato dla Claude Code na VPS.** Skille `sh-*` odwołują się do skilli `om-*`, więc agent musi je mieć. Uruchom na VPS polecenie poniżej i przy pytaniu o miejsce wybierz instalację globalną dla Claude Code.
+```mermaid
+flowchart LR
+    idea([Idea]) --> A[Analyst<br/>Q&A with owner → spec PR]
+    A -->|gate A: owner merges| R[Architect<br/>stack, design, scaffold, tests, CI]
+    R -->|gate D: owner merges| K[Manager<br/>cuts spec into issues,<br/>labels them ready]
+    K --> D
 
-```bash
-npx skills add open-mercato/skills --skill '*'
+    subgraph D [sh-delivery workflow, one run per issue]
+        direction LR
+        E[Engineer<br/>Sonnet] --> T[Tester<br/>Sonnet]
+        T -->|FAIL, max 3 cycles| E
+        T -->|PASS| V[Reviewer<br/>Opus]
+        V -->|CHANGES| E
+    end
+
+    D -->|APPROVE → merge-queue| M{{Owner merges PR}}
+    M --> C[Caretaker<br/>closes issues, cleans up]
+    C --> K
 ```
 
-3. **Skille sh-* globalnie na VPS.*\* Cezar widzi skille z `~/.claude/skills` w każdym projekcie, także w świeżo zarejestrowanym, który nie ma jeszcze żadnej konfiguracji. Wykonaj na VPS jako użytkownik, na którym działa Cezar, i kliknij Refresh w zakładce Skills. Plik `.ai/cezar/config.json` nie jest potrzebny.
+| Skill | Role |
+| --- | --- |
+| `sh-analityk` (analyst) | Interviews the owner about a new idea or a gap in the spec, writes the functional spec and opens a PR. Merging it is gate A. Runs interactively only. |
+| `sh-architekt` (architect) | After the spec is approved, picks the tech stack, adds the technical part of the spec, and scaffolds the app, tests, CI and agent pipeline. Its PR must pass gate D. |
+| `sh-kierownik` (manager) | One manager for all projects. Cuts the approved spec into issues, tracks dependencies, prioritises bugs, and releases work to Cezar's queue with the `ready` label, in priority order across projects. |
+| `sh-inzynier` (engineer) | First step of `sh-delivery`. Turns an issue into a PR, resumes a PR interrupted by a restart, and applies fixes from the tester's report, the reviewer's verdict or the owner's comments. |
+| `sh-tester` (tester) | Second step. Runs the full test suite on a temporary instance, adds missing E2E tests for the acceptance criteria, and records PASS or FAIL. Never changes application logic. |
+| `sh-reviewer` (reviewer) | Last agent step. Reviews the PR independently on a **different model than the engineer**, blocks only for serious problems, never fixes code itself. Records APPROVE or CHANGES. |
+| `sh-opiekun` (caretaker) | Runs after a PR is merged or closed. Closes resolved issues, tidies labels, deletes merged branches and E2E leftovers, so the manager sees the real state. |
+| `sh-start` | One-time repository setup: Cezar config, workflow, labels and automations. In the `sh-control` repo it sets up the hourly sweep across all projects. |
 
-```bash
-gh repo clone cieyhomelab/sh-skills ~/sh-skills
-mkdir -p ~/.claude/skills
-for d in ~/sh-skills/skills/*/; do ln -sfn "$d" ~/.claude/skills/$(basename "$d"); done
-```
+### Design decisions
 
-Aktualizacja po zmianach w skillach: `git -C ~/sh-skills pull`. Gdy dojdzie nowy skill, uruchom ponownie pętlę `for`.
+- **Human gates, not human steps.** The owner only merges: the spec (gate A), the architecture
+  and every code PR (gate D). Everything between gates runs unattended.
+- **Independent review.** The reviewer runs on a different model from the engineer, so the code
+  is not grading itself. Tester and reviewer verdicts are written to files and checked by shell
+  gates in the workflow, not trusted from the agent's own summary.
+- **Bounded retries.** A PR that fails tests or review goes back to the engineer at most three
+  times; after that it gets the `blocked` label, a comment with options and a recommendation, and
+  a push notification to the owner.
+- **Labels as the state machine.** `ready`, `merge-queue`, `do-poprawki` (owner's fix request),
+  `changes-requested`, `blocked`, `spec-gap` drive the whole flow and are visible on GitHub.
+- **Improved from real sessions.** Every Cezar and Claude Code session is logged and periodically
+  analysed to find where agents waste tokens or lose context; the skills are rewritten based on
+  that.
 
-4. **Workflow.** Skopiuj `workflows/sh-delivery.yml` do `.ai/cezar/workflows/` w repozytorium projektu albo zaimportuj go w zakładce Workflows w Cezarze.
-5. **Zasoby.** W Cezarze: Settings → Resources, 3 równoległe zadania i limit pamięci 5000 MB na zadanie. Na VPS: zainstaluj Dockera i dodaj 8 GB swapu.
+> The skill files themselves are written in Polish, my working language with the agents.
 
-## Obsługa z automatyzacją
+## Installation
 
-Po konfiguracji twoja rola to pomysł, odpowiedzi w Q&A i merge'e; resztę uruchamiają automatyzacje Cezara i godzinny przegląd.
+Five steps: steps 1, 2 and 5 are done once; steps 3 and 4 in every new project.
 
-**Jednorazowo:** załóż repozytorium `sh-control` z README, zarejestruj je w Cezarze i uruchom w nim zadanie ze skillem `sh-start` (Autonomous włączone). Powstanie godzinny przegląd wszystkich projektów.
+1. **Skills repository.** This repository holds the `skills/` and `workflows/` directories, laid
+   out the same way as [`open-mercato/skills`](https://github.com/open-mercato/skills).
+2. **Open Mercato skills for Claude Code on the VPS.** The `sh-*` skills call the `om-*` skills,
+   so the agent needs them. Run the command below on the VPS and choose the global installation
+   for Claude Code when asked.
 
-**W każdym projekcie:** załóż repozytorium z README, zarejestruj je w Cezarze i uruchom w nim zadanie ze skillem `sh-start` (Autonomous włączone). Skill dodaje konfigurację, workflow, etykiety i trzy automatyzacje.
+   ```bash
+   npx skills add open-mercato/skills --skill '*'
+   ```
 
-| Zdarzenie | Kto uruchamia | Co się dzieje |
+3. **`sh-*` skills installed globally on the VPS.** Cezar sees skills from `~/.claude/skills` in
+   every project, including a freshly registered one with no configuration yet. Run this on the
+   VPS as the user Cezar runs under, then click Refresh in the Skills tab. No
+   `.ai/cezar/config.json` is needed.
+
+   ```bash
+   gh repo clone cieyhomelab/sh-skills ~/sh-skills
+   mkdir -p ~/.claude/skills
+   for d in ~/sh-skills/skills/*/; do ln -sfn "$d" ~/.claude/skills/$(basename "$d"); done
+   ```
+
+   To update after changes to the skills: `git -C ~/sh-skills pull`. When a new skill is added,
+   run the `for` loop again.
+
+4. **Workflow.** Copy `workflows/sh-delivery.yml` to `.ai/cezar/workflows/` in the project
+   repository, or import it in Cezar's Workflows tab.
+5. **Resources.** In Cezar: Settings → Resources, 3 parallel tasks and a 5000 MB memory limit
+   per task. On the VPS: install Docker and add 8 GB of swap.
+
+## Running with automation
+
+Once configured, your role is the idea, the answers in the Q&A and the merges. Cezar's
+automations and the hourly sweep start everything else.
+
+**Once:** create an `sh-control` repository with a README, register it in Cezar and run a task
+with the `sh-start` skill in it (Autonomous on). This creates the hourly sweep of all projects.
+
+**In every project:** create a repository with a README, register it in Cezar and run a task with
+the `sh-start` skill in it (Autonomous on). The skill adds the configuration, the workflow, the
+labels and three automations.
+
+| Event | Triggered by | What happens |
 | --- | --- | --- |
-| Wpisujesz pomysł | Ty: zadanie `sh-analityk`, Autonomous wyłączone | Wywiad i PR ze specyfikacją |
-| Merge specyfikacji (bramka A) | Przegląd, do godziny | Opiekun tworzy issue `sh-architekt`, automatyzacja uruchamia architekta |
-| Merge architektury (bramka D) | Przegląd, do godziny | Kierownik tnie specyfikację na issues i nadaje `ready` |
-| Issue dostaje `ready` | Automatyzacja, do 2 minut | Workflow `sh-delivery`: inżynier, tester, reviewer |
-| Merge PR z kodem (bramka D) | Przegląd, do godziny | Opiekun zamyka issue, kierownik wypuszcza kolejne |
-| Dodajesz `do-poprawki` do issue | Automatyzacja, do 2 minut | Inżynier wprowadza twoje uwagi z PR |
-| Zakładasz issue z błędem | Przegląd, do godziny | Kierownik nadaje priorytet i kolejkuje |
+| You enter an idea | You: `sh-analityk` task, Autonomous off | Interview and a spec PR |
+| Spec merged (gate A) | Sweep, within an hour | Caretaker creates an `sh-architekt` issue, an automation starts the architect |
+| Architecture merged (gate D) | Sweep, within an hour | Manager cuts the spec into issues and labels them `ready` |
+| Issue gets `ready` | Automation, within 2 minutes | `sh-delivery` workflow: engineer, tester, reviewer |
+| Code PR merged (gate D) | Sweep, within an hour | Caretaker closes the issue, manager releases the next ones |
+| You add `do-poprawki` to an issue | Automation, within 2 minutes | Engineer applies your comments from the PR |
+| You open a bug issue | Sweep, within an hour | Manager prioritises and queues it |
 
-Cezar nie ma zdarzenia „PR zmergowany”, dlatego merge'e wykrywa godzinny przegląd. Gdy przez ostatnią godzinę nic się nie zmieniło, przegląd tylko sprząta VPS; co 6 godzin robi pełny przegląd, żeby wyłapać utkniętą pracę.
+Cezar has no "PR merged" event, so merges are detected by the hourly sweep. If nothing changed in
+the last hour, the sweep only cleans up the VPS; every 6 hours it runs a full review to catch
+stuck work.
 
-## Obsługa ręczna (gdy automatyzacje nie działają)
+## Running manually (when automations are not available)
 
-Dopóki nie ma automatyzacji (element 6), każdy krok to nowe zadanie w Cezarze uruchamiane z telefonu; po elemencie 6 zostaną tylko kroki 0 i 1 oraz merge'e.
+Without the automations, every step is a new Cezar task started from the phone. With them, only
+steps 0 and 1 and the merges remain.
 
-| Krok | Co robisz w Cezarze | Autonomous | Wynik |
+| Step | What you do in Cezar | Autonomous | Result |
 | --- | --- | --- | --- |
-| 0 | Zakładasz repozytorium z README, rejestrujesz je w Cezarze, dodajesz `.ai/cezar/config.json` i workflow | — | Projekt gotowy do pracy |
-| 1 | Zadanie ze skillem `sh-analityk`, w treści pomysł; odpowiadasz na pytania w wątku zadania | wyłączone | PR ze specyfikacją; twój merge = bramka A |
-| 2 | Zadanie ze skillem `sh-architekt`, w treści „Specyfikacja zmergowana” i link do PR | włączone | PR architektury; dodajesz wymienione sekrety i mergujesz (bramka D) |
-| 3 | Zadanie ze skillem `sh-kierownik`, w treści „Tryb P” | włączone | Issues z etykietami `planned` i `ready` |
-| 4 | Zakładka GitHub → issue z `ready` → uruchom z workflow `sh-delivery` | włączone | PR z etykietą `merge-queue`; mergujesz (bramka D) |
-| 5 | Po merge'ach zadanie ze skillem `sh-kierownik`, w treści „Tryb R” | włączone | Kolejne issues dostają `ready`; wracasz do kroku 4 |
+| 0 | Create a repository with a README, register it in Cezar, add `.ai/cezar/config.json` and the workflow | — | Project ready for work |
+| 1 | Task with the `sh-analityk` skill, the idea in the body; answer the questions in the task thread | off | Spec PR; your merge = gate A |
+| 2 | Task with the `sh-architekt` skill, "Spec merged" and the PR link in the body | on | Architecture PR; add the listed secrets and merge (gate D) |
+| 3 | Task with the `sh-kierownik` skill, "Tryb P" (planning mode) in the body | on | Issues labelled `planned` and `ready` |
+| 4 | GitHub tab → issue with `ready` → run with the `sh-delivery` workflow | on | PR labelled `merge-queue`; you merge (gate D) |
+| 5 | After merges, task with the `sh-kierownik` skill, "Tryb R" (release mode) in the body | on | Next issues get `ready`; back to step 4 |
 
-**Poprawki do PR:** dodaj do PR etykietę `do-poprawki` i opisz uwagi w komentarzach (zwykłym albo przy liniach kodu), potem uruchom `sh-delivery` na tym samym issue. Agenci używają twojego konta GitHub, więc ich komentarze zaczynają się od „🤖”; twój komentarz nie może zaczynać się od tego znaku, bo zostanie pominięty. Etykieta `changes-requested` należy do reviewera, nie używaj jej.
+**Fixes to a PR:** add the `do-poprawki` label to the PR and describe your comments (general or
+inline), then run `sh-delivery` on the same issue. The agents use your GitHub account, so their
+comments start with "🤖"; your own comment must not start with that character or it will be
+skipped. The `changes-requested` label belongs to the reviewer; do not use it.
 
-## Błędy, stan projektu i rzeczy do sprawdzenia
+## Bugs, project state and things to check
 
-- **Błąd w gotowej aplikacji:** zakładasz issue na GitHubie, uruchamiasz `sh-kierownik` z „Tryb R”, potem `sh-delivery` na tym issue.
-- **Etykieta `blocked`:** agent czeka na twoją decyzję; opcje i rekomendacja są w komentarzu. Po decyzji zdejmij etykietę.
-- **Etykieta `spec-gap`:** uruchom `sh-analityk` (Autonomous wyłączone) z linkiem do issue; po merge'u poprawki specyfikacji zdejmij `blocked`.
-- **Stan projektu w dowolnym momencie:** zadanie ze skillem `om-dev-status`.
+- **Bug in the finished app:** open an issue on GitHub, run `sh-kierownik` with "Tryb R", then
+  `sh-delivery` on that issue.
+- **`blocked` label:** an agent is waiting for your decision; the options and a recommendation
+  are in a comment. Remove the label once you decide.
+- **`spec-gap` label:** run `sh-analityk` (Autonomous off) with a link to the issue; after the
+  spec fix is merged, remove `blocked`.
+- **Project state at any time:** a task with the `om-dev-status` skill.
 
-Do sprawdzenia przy pierwszym uruchomieniu na VPS:
+To check on the first run on the VPS:
 
-- [ ] Czy Cezar przyjmuje `skillsRepos` w konfiguracji globalnej `~/.cezar/config.json`; jeśli tak, krok 3 instalacji robisz raz.
-- [ ] Czy skille `sh-*` pojawiają się w zakładce Skills po Refresh.
-- [ ] Czy `om-setup-agent-pipeline --defaults` działa bez pytań.
-- [ ] Jak automatyzacje GitHub w Cezarze filtrują issues (podstawa elementu 6).
+- [ ] Whether Cezar accepts `skillsRepos` in the global `~/.cezar/config.json`; if so, installation
+      step 3 is done only once.
+- [ ] Whether the `sh-*` skills appear in the Skills tab after Refresh.
+- [ ] Whether `om-setup-agent-pipeline --defaults` runs without prompting.
+- [ ] How Cezar's GitHub automations filter issues.

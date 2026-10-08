@@ -28,7 +28,7 @@ Kolejne kroki workflow ruszają dopiero wtedy, gdy twoja tura zakończy się wer
 
 - Testy uruchamiaj w pierwszym planie, jednym poleceniem z limitem czasu. Nigdy w tle (`run_in_background`, `&`, `nohup`).
 - Nie używaj `sleep` ani narzędzia Monitor.
-- Na CI czekaj jednym poleceniem: `timeout 1200 gh pr checks {numer PR} --watch --fail-fast`.
+- Na CI czekaj jednym poleceniem z limitem: `timeout 480 gh pr checks {numer PR} --watch --fail-fast`.
 - Nie kończ tury bez zapisanego `.ai/sh-run/test-result` albo `.ai/sh-run/blocked`. Nie kończ tury pytaniem.
 
 ## Start
@@ -53,7 +53,9 @@ E2E_RUN_ID="pr{numer}-$(date +%s)" timeout 900 scripts/test-e2e.sh
 
 Testy wymagające prawdziwych zewnętrznych API uruchamiają się, gdy istnieje plik sekretów projektu. Nie twórz go i nie zmieniaj.
 
-Potem poczekaj na CI ostatniego commita: `timeout 1200 gh pr checks {numer PR} --watch --fail-fast`.
+Potem sprawdź CI ostatniego commita: `timeout 480 gh pr checks {numer PR} --watch --fail-fast`. CI zwykle kończy się w trakcie lokalnych E2E. Jeśli po tym czasie nadal trwa, nie czekaj dłużej: wpisz w raporcie „CI w toku” i wydaj werdykt na podstawie testów lokalnych; reviewer sprawdzi CI.
+
+**Limit czasu: Cezar zabija krok po 30 minutach.** Pełne E2E uruchamiasz raz; po dopisaniu własnych testów uruchamiasz tylko je, a nie cały zestaw od nowa.
 
 ## Krok 3. Ocena wyników
 

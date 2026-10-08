@@ -1,0 +1,73 @@
+flowchart TD
+    %% Autonomiczny software house: przebieg po etapie 1 (2026-10-05)
+
+    classDef owner fill:#e8f0fe,stroke:#1a73e8,stroke-width:2px,color:#000
+    classDef gate fill:#fff4e5,stroke:#e8710a,stroke-width:2px,color:#000
+    classDef auto fill:#f1f3f4,stroke:#5f6368,color:#000
+    classDef stop fill:#fce8e6,stroke:#d93025,stroke-width:2px,color:#000
+
+    IDEA["Właściciel: pomysł<br/>zadanie sh-analityk, Autonomous wyłączone"]:::owner
+    AN["Analityk: wywiad Q&A<br/>pytania z rekomendacjami"]
+    QA["Właściciel odpowiada"]:::owner
+    SPECPR["PR ze specyfikacją<br/>etykieta spec, push: spec"]
+    GA{"Bramka A<br/>merge specyfikacji"}:::gate
+
+    IDEA --> AN
+    AN <-->|rundy pytań| QA
+    AN --> SPECPR --> GA
+
+    OP["Przegląd co godzinę: opiekun<br/>zamyka issues, czyści etykiety, gałęzie, Docker"]:::auto
+    KR["Przegląd: kierownik tryb R<br/>R1 zgłoszenia, R2 zależności,<br/>R3 okno max 3 ready, R4 utknięta praca"]:::auto
+    KP["Przegląd: kierownik tryb P<br/>tnie specyfikację na issues planned"]:::auto
+
+    GA -->|"do godziny"| OP
+    OP -->|"issue z etykietą sh-architekt"| A1["Automatyzacja: architekt"]:::auto
+    A1 --> AR["Architekt<br/>stos, szkielet, testy, CI, plan z zależnościami"]
+    AR --> ARPR["PR architektury<br/>etykieta architecture, push: merge"]
+    ARPR --> GD1{"Bramka D<br/>merge architektury"}:::gate
+    GD1 -->|"do godziny"| KP
+    KP --> KR
+    KR -->|"etykieta ready"| A2["Automatyzacja: realizacja<br/>do 2 minut"]:::auto
+
+    subgraph DELIVERY["Workflow sh-delivery: jedno issue, jeden PR"]
+        ING["Inżynier<br/>tryb: nowy PR / poprawki / wznowienie"]
+        TST["Tester<br/>pełne testy + E2E, CI --watch"]
+        TG{"Bramka testów"}:::gate
+        REV["Reviewer, inny model<br/>bez pełnych testów, sprawdza konflikt"]
+        RG{"Bramka recenzji"}:::gate
+        ING --> TST --> TG
+        TG -->|"FAIL, max 3"| ING
+        TG -->|PASS| REV --> RG
+        RG -->|"CHANGES lub konflikt, max 3"| ING
+    end
+
+    A2 --> ING
+    RG -->|"APPROVE: merge-queue, push: merge"| GD{"Bramka D<br/>Właściciel merguje PR<br/>tylko z merge-queue"}:::gate
+    GD -->|"do godziny"| OP
+    OP --> KR
+
+    %% Uwagi i poprawki właściciela
+    GD -.->|"uwagi albo konflikt"| FIX["Właściciel: do-poprawki na issue<br/>+ komentarz w PR"]:::owner
+    FIX --> A3["Automatyzacja: poprawki"]:::auto --> ING
+
+    %% Błędy i zgłoszenia
+    BUG["Właściciel zgłasza błąd jako issue"]:::owner --> KR
+    TST -.->|"niestabilny test: issue bug"| KR
+    REV -.->|"błąd poza zakresem: issue bug"| KR
+
+    %% Samonaprawa po restarcie Cezara
+    KR -.->|"R4: PR bez ruchu 90 min<br/>ponowne ready, raz"| A2
+
+    %% Zatrzymania wymagające właściciela
+    BLK["blocked + push<br/>Właściciel decyduje i zdejmuje blocked"]:::stop
+    TG -.->|"4. FAIL albo problem ze środowiskiem"| BLK
+    RG -.->|"4. CHANGES"| BLK
+    ING -.->|"nic do zmiany / środowisko"| BLK
+    KR -.->|"drugie utknięcie, brak sekretów,<br/>nowa funkcja zamiast błędu"| BLK
+    AR -.->|"nie da się dobrać stosu"| BLK
+    BLK -.->|"po decyzji"| KR
+
+    %% Luka w specyfikacji
+    ING -.->|"luka: spec-gap + blocked"| GAP["Właściciel: sh-analityk tryb B"]:::owner
+    GAP --> FIXPR["PR Spec fix"] --> GA2{"Bramka A<br/>merge poprawki"}:::gate
+    GA2 -->|"opiekun zdejmuje blocked,<br/>ponowne ready"| A2

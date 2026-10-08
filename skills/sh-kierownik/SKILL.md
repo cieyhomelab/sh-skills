@@ -72,7 +72,7 @@ Każde uruchomienie musi być idempotentne: dwa uruchomienia jedno po drugim nie
 
 1. **Specyfikacja.** Znajdź specyfikację, której sekcje techniczne uzupełnił zmergowany PR architekta. Przeczytaj etapy dostarczenia i plan implementacji z zależnościami.
 2. **Duplikaty.** Sprawdź issues ze znacznikiem `sh-spec` tej specyfikacji. Twórz tylko te, których brakuje.
-3. **Podział na issues.** Każde issue kończy się PR ze zmianą w repozytorium; bez wyjątków. Czynności, które nie zmieniają repozytorium (odbiór, ręczna publikacja, konfiguracja konta zewnętrznego), nie są issues: wypisz je w komentarzu z kroku 10 jako czynności właściciela. Domyślnie jeden etap to jedno issue i jeden PR. Podziel etap na kilka issues, gdy ma więcej niż 6 kroków w planie implementacji albo dotyka kilku niezależnych obszarów. Każde issue musi:
+3. **Podział na issues.** Każde issue kończy się PR ze zmianą w repozytorium; bez wyjątków. Czynności, które nie zmieniają repozytorium (odbiór, ręczna publikacja, konfiguracja konta zewnętrznego), nie są issues: wypisz je w komentarzu z kroku 10 jako czynności właściciela. Domyślnie jeden etap to jedno issue i jeden PR. Podziel etap na kilka issues, gdy ma więcej niż 4 kroki w planie implementacji albo dotyka kilku niezależnych obszarów. Inżynier ma na jedno issue 30 minut łącznie z pełnymi testami: issue, którego nie da się zrobić w 20 minutach, jest za duże. Każde issue musi:
    - dawać funkcję działającą i widoczną dla użytkownika (pionowy wycinek),
    - dać się zrecenzować jako jeden PR,
    - zostawiać aplikację działającą po merge'u.

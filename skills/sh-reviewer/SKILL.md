@@ -44,7 +44,7 @@ Zastosuj listę kontrolną `om-code-review` oraz reguły z `CODE_REVIEW.md`. Dod
 5. **Kontrakty:** zmiany API i formatów są zgodne z `BACKWARD_COMPATIBILITY.md`.
 6. **Utrzymywalność:** zgodność z konwencjami z `AGENTS.md`; brak martwego kodu i zduplikowanej logiki.
 7. **Scalanie:** `gh pr view {numer} --json mergeable,mergeStateStatus`. PR, którego nie da się scalić z gałęzią bazową, dostaje `CHANGES` z punktem „Konflikt z gałęzią bazową: scal ją i rozwiąż konflikt”. Status `UNKNOWN` sprawdź ponownie raz.
-8. **CI:** zielone dla ostatniego commita. Czerwone CI to punkt blokujący.
+8. **CI:** zielone dla ostatniego commita. Jeśli jeszcze trwa, poczekaj raz: `timeout 600 gh pr checks {numer} --watch --fail-fast`. Czerwone CI to punkt blokujący.
 
 ## Waga uwag
 

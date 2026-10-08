@@ -26,11 +26,17 @@ Kod, commity i nazwy po angielsku. Opisy PR i komentarze po polsku.
 
 ## Praca w pierwszym planie
 
-Kolejne kroki workflow ruszają dopiero wtedy, gdy twoja tura zakończy się wynikiem. Turę zakończona czekaniem Cezar traktuje jako koniec całego workflow: tester i reviewer wtedy w ogóle nie startują.
+Kolejne kroki workflow ruszają dopiero wtedy, gdy twoja tura zakończy się wynikiem. Turę zakończoną czekaniem Cezar traktuje jako koniec całego workflow: tester i reviewer wtedy w ogóle nie startują.
+
+**Limit czasu: Cezar zabija krok po 30 minutach**, a wtedy cały workflow kończy się błędem. Planuj pracę tak, żeby zmieścić się w 25 minutach:
+
+- Na CI nie czekasz. CI sprawdza tester.
+- Pełne E2E uruchamiasz raz, na końcu, przed wypchnięciem. W trakcie pracy uruchamiaj tylko testy, które dotyczą zmienianego fragmentu.
+- PR otwierasz jako draft zaraz po pierwszym commicie (krok 7 niżej) i wypychasz każdy kolejny commit. Jeśli krok zostanie przerwany, praca nie przepadnie, a kierownik wznowi ją od tego PR.
+- Jeśli po 20 minutach widzisz, że nie zdążysz, wypchnij to, co masz, skomentuj PR listą tego, co zostało, i zakończ turę bez etykiety `review`. Kierownik wznowi pracę w nowym przebiegu.
 
 - Testy uruchamiaj w pierwszym planie, jednym poleceniem z limitem czasu: `timeout 900 scripts/test-e2e.sh`. Nigdy w tle (`run_in_background`, `&`, `nohup`).
 - Nie używaj `sleep` ani narzędzia Monitor.
-- Na CI czekaj jednym poleceniem: `timeout 1200 gh pr checks {numer PR} --watch --fail-fast`.
 - Nie kończ tury, dopóki nie wypchnąłeś kodu albo nie zapisałeś `.ai/sh-run/blocked`. Nie kończ tury pytaniem.
 
 ## Przygotowanie
@@ -48,7 +54,7 @@ Sprawdzaj po kolei; pierwszy pasujący wygrywa.
 
 1. **Poprawki w tym przebiegu:** do promptu dołączony jest raport testera albo werdykt reviewera (Cezar dopisuje je przy powrocie z bramki). PR już istnieje, jego numer jest w `.ai/sh-run/pr`.
 2. **Poprawki od właściciela:** issue ma etykietę `do-poprawki` i istnieje dla niego otwarty PR. Tę etykietę ustawia wyłącznie właściciel, na issue. Etykieta `changes-requested` (nadaje ją reviewer) nie uruchamia tego trybu.
-3. **Wznowienie:** istnieje otwarty PR dla issue bez etykiety `merge-queue`. Poprzedni przebieg został przerwany (np. restart Cezara) albo PR wrócił z konfliktem.
+3. **Wznowienie:** istnieje otwarty PR dla issue bez etykiety `merge-queue` (także draft). Poprzedni przebieg został przerwany (restart Cezara, limit 30 minut) albo PR wrócił z konfliktem.
 4. **Nowy PR, błąd:** issue ma etykietę `bug`.
 5. **Nowy PR, funkcja:** issue ma etykietę `feature`.
 
@@ -63,13 +69,14 @@ Sprawdzaj po kolei; pierwszy pasujący wygrywa.
 4. **Nic do zmiany:** jeśli okaże się, że issue nie wymaga żadnej zmiany w repozytorium (błąd nie występuje, funkcja już działa, zadanie to czynność poza kodem), nie otwieraj PR. Przejdź do sekcji „Bez PR”.
 5. **Testy:** każda zmiana zachowania ma test. Każde kryterium akceptacji ma test E2E. Poprawka błędu ma test regresyjny, który bez poprawki nie przechodzi.
 6. **Walidacja:** uruchom wszystkie komendy z `validation.commands` na ostatnim commicie, w pierwszym planie. Wszystkie muszą przejść, zanim wypchniesz kod. Jeśli którejś nie da się uruchomić z powodu środowiska (Docker, uprawnienia, brak miejsca), nie wypychaj kodu: przejdź do sekcji „Problem ze środowiskiem”.
-7. **PR:**
-   - wypchnij gałąź: `git push origin HEAD:{feat|fix}/{numer-issue}-{krotki-opis}`
-   - otwórz PR z jawną gałęzią: `gh pr create --head {feat|fix}/{numer-issue}-{krotki-opis} --base {gałąź bazowa} --title ... --body ...`
+7. **PR, od pierwszego commita:**
+   - zaraz po pierwszym commicie wypchnij gałąź: `git push origin HEAD:{feat|fix}/{numer-issue}-{krotki-opis}`
+   - otwórz PR jako draft z jawną gałęzią: `gh pr create --draft --head {feat|fix}/{numer-issue}-{krotki-opis} --base {gałąź bazowa} --title ... --body ...`
    - tytuł: `{feat|fix}: {opis}` po angielsku
    - opis po polsku: co zmieniono, jak to sprawdzić, lista testów dodanych dla kryteriów akceptacji, „Closes #{numer}”
-   - etykiety: `feature` albo `bug`, ryzyko przepisane z issue, `review`
    - zapisz numer PR w `.ai/sh-run/pr`
+   - każdy kolejny commit od razu wypychaj na tę gałąź
+   - po zielonej walidacji z kroku 6: `gh pr ready {numer}`, uzupełnij opis, dodaj etykiety `feature` albo `bug`, ryzyko przepisane z issue i `review`
 8. Przejdź do „Zakończenia”.
 
 ## Tryb 1. Poprawki w tym przebiegu
@@ -95,7 +102,7 @@ Sprawdzaj po kolei; pierwszy pasujący wygrywa.
 2. Jeśli PR nie daje się scalić z gałęzią bazową (`gh pr view {numer} --json mergeable`), scal ją jak w trybie 1, krok 2.
 3. Porównaj PR z kryteriami akceptacji issue. Dokończ to, czego brakuje.
 4. Walidacja jak w trybie 4 i 5, potem commit i push, jeśli coś się zmieniło.
-5. Ustaw na PR etykietę `review` (zdejmij `changes-requested`), skomentuj PR „🤖 Inżynier: wznowiłem przerwany przebieg, przekazuję do testów.”
+5. Jeśli PR jest draftem, oznacz go jako gotowy (`gh pr ready {numer}`). Ustaw na PR etykietę `review` (zdejmij `changes-requested`), skomentuj PR „🤖 Inżynier: wznowiłem przerwany przebieg, przekazuję do testów.”
 
 ## Luka w specyfikacji
 

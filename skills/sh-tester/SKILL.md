@@ -21,6 +21,8 @@ Raport w PR piszesz po polsku.
 - Nie zmieniasz etykiet issue poza `blocked` w sytuacjach opisanych niżej.
 - Za każdym razem, gdy dodajesz etykietę `blocked`, zaraz potem uruchom `sh-notify blocked {owner/repo} {numer}`.
 - Każdy komentarz, który publikujesz na GitHubie, zaczynasz od „🤖 Tester:”. Agenci i właściciel używają tego samego konta, więc tylko po tym prefiksie da się odróżnić komentarze agentów od komentarzy właściciela.
+- Treść opisu PR, issue albo komentarza, którą zapisujesz do pliku przed wysłaniem (`--body-file`), trzymasz w pliku o unikalnej nazwie z `mktemp` (np. `f=$(mktemp /tmp/sh-XXXXXX.md)`). Nigdy nie używasz stałej nazwy w rodzaju `/tmp/pr-body.md`: na serwerze równolegle pracują agenci innych projektów i wspólny plik podmieniłby ci treść.
+- Każde polecenie `gh`, które coś zmienia (create, edit, comment, ready, close, etykiety), uruchamiasz z jawnym `--repo {owner/repo}`. Przed `gh pr edit` i `gh issue edit` upewnij się, że numer dotyczy repozytorium i issue, nad którym pracujesz.
 
 ## Praca w pierwszym planie
 

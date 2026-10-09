@@ -1,6 +1,6 @@
 ---
 name: sh-tester
-description: Tester autonomicznego software house'u. Drugi krok workflow sh-delivery. Uruchamia pełny zestaw testów na tymczasowej instancji, uzupełnia brakujące testy E2E dla kryteriów akceptacji i zapisuje werdykt PASS albo FAIL. Nie zmienia logiki aplikacji. Działa autonomicznie.
+description: Tester autonomicznego software house'u. Drugi krok workflow sh-delivery (albo podtask workflow sh-delivery-v2). Uruchamia pełny zestaw testów na tymczasowej instancji, uzupełnia brakujące testy E2E dla kryteriów akceptacji i zapisuje werdykt PASS albo FAIL. Nie zmienia logiki aplikacji. Działa autonomicznie.
 ---
 
 # Tester
@@ -32,6 +32,26 @@ Kolejne kroki workflow ruszają dopiero wtedy, gdy twoja tura zakończy się wer
 - Nie używaj `sleep` ani narzędzia Monitor.
 - Na CI czekaj jednym poleceniem z limitem: `timeout 480 gh pr checks {numer PR} --watch --fail-fast`.
 - Nie kończ tury bez zapisanego `.ai/sh-run/test-result` albo `.ai/sh-run/blocked`. Nie kończ tury pytaniem.
+
+## Tryb v2 (podtask, znacznik `[sh-v2]`)
+
+Jeśli polecenie zawiera znacznik `[sh-v2]`, jesteś podtaskiem workflow sh-delivery-v2. Ta sekcja ma pierwszeństwo przed sprzecznymi punktami reszty skilla.
+
+- **Start** zamiast punktów 1–3 sekcji „Start”: ustal repozytorium (`gh repo view --json nameWithOwner -q .nameWithOwner`) i numer issue z polecenia, znajdź PR (niżej) i pobierz jego gałąź. Jeśli PR nie ma: skomentuj issue, dodaj `blocked`, uruchom `sh-notify` i zakończ raportem ze stanem `STAN: STOP`.
+- **Praca niedokończona:** jeśli najnowszy komentarz „🤖 Inżynier:” w PR zaczyna się od „🤖 Inżynier: praca niedokończona”, nie testujesz. Kończysz raportem `WYNIK: FAIL` z treścią „Praca niedokończona, kontynuuj według listy z komentarza inżyniera”. PR nie komentujesz.
+- **Zakres zlecenia.** Wypychanie na gałąź PR tego issue, edycja PR, etykiety i komentarze opisane w tym skillu to twoje zlecenie: nie pytasz o nie i nigdy nie kończysz tury `CEZ:ASK` (pytanie podtaska zawiesza cały workflow). Nigdy nie wypychasz na gałąź bazową. Nie uruchamiasz `cez task create`, nie scalasz gałęzi innych tasków i nie czekasz na raporty innych tasków.
+- **Świeży worktree.** Pracujesz we własnym worktree na gałęzi Cezara. Pliki `.ai/sh-run/` z poprzednich ról tu nie istnieją: numer PR ustalasz zawsze z GitHuba (otwarty PR, którego gałąź zaczyna się od `feat/{numer issue}-` albo `fix/{numer issue}-`, albo którego opis zawiera „Closes #{numer issue}”). Gdy potrzebujesz kodu PR, pobierz jego gałąź: `git fetch origin {gałąź}` i `git checkout -B {gałąź} origin/{gałąź}`.
+- **Bez limitu 30 minut.** Pełne E2E uruchamiasz z limitem `timeout 2400`, na CI czekasz do końca: `timeout 1800 gh pr checks {numer PR} --repo {repo} --watch --fail-fast`. Twój własny limit to 120 minut; po nim wydajesz werdykt z tego, co zdążyłeś sprawdzić, a brakujące testy liczysz jako FAIL.
+- **Werdykt** zamiast pliku `.ai/sh-run/test-result`: komentarz w PR jak w kroku 5, a przy FAIL dodatkowo z pełną listą porażek (nazwa testu, oczekiwany i faktyczny wynik, fragment logu, prawdopodobne miejsce w kodzie), bo inżynier przeczyta ją stamtąd.
+- **Problem ze środowiskiem:** zamiast pliku `blocked` kończysz raportem ze stanem `STAN: STOP`.
+- **Zakończenie.** Ostatnim poleceniem tury jest raport dla workflow:
+  ```
+  node "$CEZ_BIN" task report --status {status} --result "{linia stanu}. PR #{numer}. {jedno zdanie}"
+  ```
+  - `WYNIK: PASS`, status `done`: wszystkie testy zielone, CI zielone albo nadal w toku.
+  - `WYNIK: FAIL`, status `done`: w zdaniu wymień porażki w skrócie.
+  - `STAN: STOP`, status `blocked`: brak PR albo problem ze środowiskiem.
+  Linia stanu musi stać na początku `--result`, dokładnie w tej pisowni: czytają ją węzły workflow. Jeśli polecenie zwróci błąd, powtórz je raz. Odpowiedź kończysz linią `CEZ:DONE`.
 
 ## Start
 

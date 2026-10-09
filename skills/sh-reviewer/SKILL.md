@@ -1,6 +1,6 @@
 ---
 name: sh-reviewer
-description: Reviewer autonomicznego software house'u. Ostatni krok agenta w workflow sh-delivery. Niezależnie ocenia PR na innym modelu niż inżynier, blokuje tylko za poważne problemy, nie poprawia kodu sam. Zapisuje werdykt APPROVE albo CHANGES i ustawia etykiety. Działa autonomicznie.
+description: Reviewer autonomicznego software house'u. Ostatni krok agenta w workflow sh-delivery (albo podtask workflow sh-delivery-v2). Niezależnie ocenia PR na innym modelu niż inżynier, blokuje tylko za poważne problemy, nie poprawia kodu sam. Zapisuje werdykt APPROVE albo CHANGES i ustawia etykiety. Działa autonomicznie.
 ---
 
 # Reviewer
@@ -27,6 +27,24 @@ Uwagi w PR piszesz po polsku.
 ## Praca w pierwszym planie
 
 Kolejne kroki workflow ruszają dopiero wtedy, gdy twoja tura zakończy się werdyktem. Nie uruchamiaj niczego w tle, nie używaj `sleep` ani narzędzia Monitor i nie kończ tury bez zapisanego `.ai/sh-run/review-verdict`. Nie kończ tury pytaniem.
+
+## Tryb v2 (podtask, znacznik `[sh-v2]`)
+
+Jeśli polecenie zawiera znacznik `[sh-v2]`, jesteś podtaskiem workflow sh-delivery-v2. Ta sekcja ma pierwszeństwo przed sprzecznymi punktami reszty skilla.
+
+- **Start** zamiast punktów 1–2 sekcji „Start”: ustal repozytorium (`gh repo view --json nameWithOwner -q .nameWithOwner`) i numer issue z polecenia, znajdź PR (niżej). Ostatni raport testera to najnowszy komentarz „🤖 Tester:” w PR. Jeśli PR nie ma: skomentuj issue, dodaj `blocked`, uruchom `sh-notify` i zakończ raportem ze stanem `STAN: STOP`.
+- **Zakres zlecenia.** Wypychanie na gałąź PR tego issue, edycja PR, etykiety i komentarze opisane w tym skillu to twoje zlecenie: nie pytasz o nie i nigdy nie kończysz tury `CEZ:ASK` (pytanie podtaska zawiesza cały workflow). Nigdy nie wypychasz na gałąź bazową. Nie uruchamiasz `cez task create`, nie scalasz gałęzi innych tasków i nie czekasz na raporty innych tasków.
+- **Świeży worktree.** Pracujesz we własnym worktree na gałęzi Cezara. Pliki `.ai/sh-run/` z poprzednich ról tu nie istnieją: numer PR ustalasz zawsze z GitHuba (otwarty PR, którego gałąź zaczyna się od `feat/{numer issue}-` albo `fix/{numer issue}-`, albo którego opis zawiera „Closes #{numer issue}”). Gdy potrzebujesz kodu PR, pobierz jego gałąź: `git fetch origin {gałąź}` i `git checkout -B {gałąź} origin/{gałąź}`.
+- **CI:** jeśli trwa, czekasz do końca: `timeout 1800 gh pr checks {numer} --repo {repo} --watch --fail-fast`.
+- **Werdykt** zamiast pliku `.ai/sh-run/review-verdict`: komentarz i etykiety jak w sekcji „Werdykt”. Przy `APPROVE` uruchom dodatkowo `sh-notify merge {repo} {numer PR}`, bo w tym workflow nie ma bramki, która to robi.
+- **Zakończenie.** Ostatnim poleceniem tury jest raport dla workflow:
+  ```
+  node "$CEZ_BIN" task report --status {status} --result "{linia stanu}. PR #{numer}. {jedno zdanie}" --verdict {approve|changes}
+  ```
+  - `WERDYKT: APPROVE`, status `done`, `--verdict approve`.
+  - `WERDYKT: CHANGES`, status `done`, `--verdict changes`: w zdaniu liczba punktów blokujących.
+  - `STAN: STOP`, status `blocked`, bez `--verdict`: brak PR.
+  Linia stanu musi stać na początku `--result`, dokładnie w tej pisowni: czytają ją węzły workflow. Jeśli polecenie zwróci błąd, powtórz je raz. Odpowiedź kończysz linią `CEZ:DONE`.
 
 ## Start
 

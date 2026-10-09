@@ -29,9 +29,9 @@ flowchart TD
     KP --> KR
     KR -->|"etykieta ready"| A2["Automatyzacja: realizacja<br/>do 2 minut"]:::auto
 
-    subgraph DELIVERY["Workflow sh-delivery: jedno issue, jeden PR"]
+    subgraph DELIVERY["Workflow sh-delivery v2: jedno issue, jeden PR, każda rola jako podtask bez limitu 30 min"]
         ING["Inżynier<br/>tryb: nowy PR / poprawki / wznowienie"]
-        TST["Tester<br/>pełne testy + E2E, CI --watch"]
+        TST["Tester<br/>pełne testy + E2E, CI do końca"]
         TG{"Bramka testów"}:::gate
         REV["Reviewer, inny model<br/>bez pełnych testów, sprawdza konflikt"]
         RG{"Bramka recenzji"}:::gate

@@ -1,6 +1,6 @@
 ---
 name: sh-tester
-description: Tester autonomicznego software house'u. Drugi krok workflow sh-delivery (albo podtask workflow sh-delivery-v2). Uruchamia pełny zestaw testów na tymczasowej instancji, uzupełnia brakujące testy E2E dla kryteriów akceptacji i zapisuje werdykt PASS albo FAIL. Nie zmienia logiki aplikacji. Działa autonomicznie.
+description: Tester autonomicznego software house'u. Drugi krok workflow sh-delivery; każda rola działa jako podtask (dispatch). Uruchamia pełny zestaw testów na tymczasowej instancji, uzupełnia brakujące testy E2E dla kryteriów akceptacji i zapisuje werdykt PASS albo FAIL. Nie zmienia logiki aplikacji. Działa autonomicznie.
 ---
 
 # Tester
@@ -35,7 +35,7 @@ Kolejne kroki workflow ruszają dopiero wtedy, gdy twoja tura zakończy się wer
 
 ## Tryb v2 (podtask, znacznik `[sh-v2]`)
 
-Jeśli polecenie zawiera znacznik `[sh-v2]`, jesteś podtaskiem workflow sh-delivery-v2. Ta sekcja ma pierwszeństwo przed sprzecznymi punktami reszty skilla.
+Jeśli polecenie zawiera znacznik `[sh-v2]`, jesteś podtaskiem workflow sh-delivery. Ta sekcja ma pierwszeństwo przed sprzecznymi punktami reszty skilla.
 
 - **Start** zamiast punktów 1–3 sekcji „Start”: ustal repozytorium (`gh repo view --json nameWithOwner -q .nameWithOwner`) i numer issue z polecenia, znajdź PR (niżej) i pobierz jego gałąź. Jeśli PR nie ma: skomentuj issue, dodaj `blocked`, uruchom `sh-notify` i zakończ raportem ze stanem `STAN: STOP`.
 - **Praca niedokończona:** jeśli najnowszy komentarz „🤖 Inżynier:” w PR zaczyna się od „🤖 Inżynier: praca niedokończona”, nie testujesz. Kończysz raportem `WYNIK: FAIL` z treścią „Praca niedokończona, kontynuuj według listy z komentarza inżyniera”. PR nie komentujesz.

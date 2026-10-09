@@ -50,8 +50,14 @@ Jeśli repozytorium nie ma żadnego commita, zatrzymaj się i poproś właścici
 
 ### P2. Pliki Cezara
 
-1. `.ai/cezar/workflows/sh-delivery.yml`: skopiuj aktualną wersję z `{login}/sh-skills`, ścieżka `workflows/sh-delivery.yml` (`gh api repos/{login}/sh-skills/contents/workflows/sh-delivery.yml --jq .content | base64 -d`). Nadpisz, jeśli się różni.
-2. Jeśli coś się zmieniło, zacommituj na gałąź bazową z komunikatem `chore: konfiguracja software house` i wypchnij. Potem zaktualizuj główną kopię repozytorium, z której korzysta Cezar (jej katalog to pierwsza pozycja z `git worktree list`; wykonaj w nim `git pull --ff-only`), bo Cezar czyta workflow i konfigurację z niej.
+1. Pracuj na najświeższej gałęzi bazowej z GitHuba, nie na tej, od której Cezar utworzył worktree: `git fetch origin {gałąź bazowa}` i `git checkout -B sh-start-config origin/{gałąź bazowa}`.
+2. `.ai/cezar/workflows/sh-delivery.yml`: skopiuj aktualną wersję z `{login}/sh-skills`, ścieżka `workflows/sh-delivery.yml` (`gh api repos/{login}/sh-skills/contents/workflows/sh-delivery.yml --jq .content | base64 -d`). Nadpisz, jeśli się różni. To workflow w wersji 2 (`version: 2`, węzły dispatch); starszej wersji nie zostawiasz.
+3. Jeśli coś się zmieniło, zacommituj z komunikatem `chore: konfiguracja software house` i wypchnij na gałąź bazową: `git push origin HEAD:{gałąź bazowa}`. Push odrzucony, bo ktoś w międzyczasie zmienił gałąź bazową: powtórz od punktu 1, najwyżej dwa razy.
+4. Zsynchronizuj główną kopię repozytorium, z której Cezar czyta workflow (jej katalog to pierwsza pozycja z `git worktree list`). Nie zmieniasz w niej nic, co mogłoby zgubić pracę:
+   - `git -C {katalog} fetch origin`, potem sprawdź `git -C {katalog} status --porcelain` (lokalne zmiany) i `git -C {katalog} rev-list --left-right --count origin/{gałąź bazowa}...HEAD` (ile commitów brakuje i ile jest tylko lokalnie);
+   - bieżąca gałąź to gałąź bazowa, brak lokalnych zmian i brak lokalnych commitów: `git -C {katalog} merge --ff-only origin/{gałąź bazowa}`;
+   - w każdym innym przypadku (inna gałąź, lokalne zmiany, lokalne commity, rozjechana historia) nie ruszasz katalogu. W raporcie, jako pierwszy punkt, podaj stan (gałąź, lista zmienionych plików, lokalne commity z `git log --oneline origin/{gałąź bazowa}..HEAD`) i polecenia, którymi właściciel może to wyrównać sam, z ostrzeżeniem, co przepadnie.
+5. Sprawdź, że Cezar widzi workflow: `grep -q '^version: 2' {katalog}/.ai/cezar/workflows/sh-delivery.yml`. Jeśli nie, napisz to w raporcie: automatyzacje uruchomią starą wersję.
 
 ### P3. Etykiety
 
@@ -132,7 +138,7 @@ Napisz właścicielowi: co dodano do repozytorium, które etykiety utworzono, li
 To repozytorium nie zawiera kodu. Służy jako miejsce, w którym działa godzinny przegląd wszystkich projektów.
 
 1. Gałąź bazowa jak w P1.
-2. `.ai/cezar/workflows/sh-sweep.yml`: skopiuj z `{login}/sh-skills`, ścieżka `workflows/sh-sweep.yml`. Commit, push i aktualizacja głównej kopii jak w P2.2.
+2. `.ai/cezar/workflows/sh-sweep.yml`: skopiuj z `{login}/sh-skills`, ścieżka `workflows/sh-sweep.yml`. Gałąź, commit, push i synchronizacja głównej kopii jak w P2 (punkty 1, 3 i 4).
 3. Automatyzacja (utwórz albo zaktualizuj, potem włącz):
 
 ```json

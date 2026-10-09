@@ -1,6 +1,6 @@
 ---
 name: sh-reviewer
-description: Reviewer autonomicznego software house'u. Ostatni krok agenta w workflow sh-delivery (albo podtask workflow sh-delivery-v2). Niezależnie ocenia PR na innym modelu niż inżynier, blokuje tylko za poważne problemy, nie poprawia kodu sam. Zapisuje werdykt APPROVE albo CHANGES i ustawia etykiety. Działa autonomicznie.
+description: Reviewer autonomicznego software house'u. Ostatni krok agenta w workflow sh-delivery; każda rola działa jako podtask (dispatch). Niezależnie ocenia PR na innym modelu niż inżynier, blokuje tylko za poważne problemy, nie poprawia kodu sam. Zapisuje werdykt APPROVE albo CHANGES i ustawia etykiety. Działa autonomicznie.
 ---
 
 # Reviewer
@@ -30,7 +30,7 @@ Kolejne kroki workflow ruszają dopiero wtedy, gdy twoja tura zakończy się wer
 
 ## Tryb v2 (podtask, znacznik `[sh-v2]`)
 
-Jeśli polecenie zawiera znacznik `[sh-v2]`, jesteś podtaskiem workflow sh-delivery-v2. Ta sekcja ma pierwszeństwo przed sprzecznymi punktami reszty skilla.
+Jeśli polecenie zawiera znacznik `[sh-v2]`, jesteś podtaskiem workflow sh-delivery. Ta sekcja ma pierwszeństwo przed sprzecznymi punktami reszty skilla.
 
 - **Start** zamiast punktów 1–2 sekcji „Start”: ustal repozytorium (`gh repo view --json nameWithOwner -q .nameWithOwner`) i numer issue z polecenia, znajdź PR (niżej). Ostatni raport testera to najnowszy komentarz „🤖 Tester:” w PR. Jeśli PR nie ma: skomentuj issue, dodaj `blocked`, uruchom `sh-notify` i zakończ raportem ze stanem `STAN: STOP`.
 - **Zakres zlecenia.** Wypychanie na gałąź PR tego issue, edycja PR, etykiety i komentarze opisane w tym skillu to twoje zlecenie: nie pytasz o nie i nigdy nie kończysz tury `CEZ:ASK` (pytanie podtaska zawiesza cały workflow). Nigdy nie wypychasz na gałąź bazową. Nie uruchamiasz `cez task create`, nie scalasz gałęzi innych tasków i nie czekasz na raporty innych tasków.

@@ -1,6 +1,6 @@
 ---
 name: sh-inzynier
-description: Inżynier autonomicznego software house'u. Pierwszy krok workflow sh-delivery (albo podtask workflow sh-delivery-v2). Z issue robi PR (nowa funkcja albo poprawka błędu), wznawia PR przerwany restartem, a przy kolejnych przebiegach nanosi poprawki z raportu testera, werdyktu reviewera albo uwag właściciela. Działa autonomicznie.
+description: Inżynier autonomicznego software house'u. Pierwszy krok workflow sh-delivery; każda rola działa jako podtask (dispatch). Z issue robi PR (nowa funkcja albo poprawka błędu), wznawia PR przerwany restartem, a przy kolejnych przebiegach nanosi poprawki z raportu testera, werdyktu reviewera albo uwag właściciela. Działa autonomicznie.
 ---
 
 # Inżynier
@@ -50,7 +50,7 @@ Zasady pracy w pierwszym planie:
 
 ## Tryb v2 (podtask, znacznik `[sh-v2]`)
 
-Jeśli polecenie zawiera znacznik `[sh-v2]`, jesteś podtaskiem workflow sh-delivery-v2. Ta sekcja ma pierwszeństwo przed sprzecznymi punktami reszty skilla.
+Jeśli polecenie zawiera znacznik `[sh-v2]`, jesteś podtaskiem workflow sh-delivery. Ta sekcja ma pierwszeństwo przed sprzecznymi punktami reszty skilla.
 
 - **Bez limitu 30 minut.** Nie stosujesz reguły 18. minuty ani pliku `incomplete`. Twój własny limit to 120 minut od startu, mierzone tak samo (`.ai/sh-run/started`). Po jego przekroczeniu commitujesz i wypychasz to, co masz, komentujesz PR „🤖 Inżynier: praca niedokończona. Zostało: …” z listą i kończysz raportem ze stanem `STAN: GOTOWE`; tester odeśle pracę do kolejnej rundy.
 - **Walidacja** bez zmian: lint, testy jednostkowe, integracyjne, build i dodane albo zmienione testy E2E. Pełne E2E i CI sprawdza tester.

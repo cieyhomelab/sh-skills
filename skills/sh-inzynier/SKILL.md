@@ -28,20 +28,27 @@ Kod, commity i nazwy po angielsku. Opisy PR i komentarze po polsku.
 
 Kolejne kroki workflow ruszają dopiero wtedy, gdy twoja tura zakończy się wynikiem. Turę zakończoną czekaniem Cezar traktuje jako koniec całego workflow: tester i reviewer wtedy w ogóle nie startują.
 
-**Limit czasu: Cezar zabija krok po 30 minutach**, a wtedy cały workflow kończy się błędem. Planuj pracę tak, żeby zmieścić się w 25 minutach:
+**Limit czasu: Cezar zabija krok po 30 minutach**, a wtedy cały workflow kończy się błędem i tester z reviewerem nie startują. Dlatego pilnujesz czasu poleceniem, a nie wyczuciem:
 
-- Na CI nie czekasz. CI sprawdza tester.
-- Pełne E2E uruchamiasz raz, na końcu, przed wypchnięciem. W trakcie pracy uruchamiaj tylko testy, które dotyczą zmienianego fragmentu.
-- PR otwierasz jako draft zaraz po pierwszym commicie (krok 7 niżej) i wypychasz każdy kolejny commit. Jeśli krok zostanie przerwany, praca nie przepadnie, a kierownik wznowi ją od tego PR.
-- Jeśli po 20 minutach widzisz, że nie zdążysz, wypchnij to, co masz, skomentuj PR listą tego, co zostało, i zakończ turę bez etykiety `review`. Kierownik wznowi pracę w nowym przebiegu.
+- Na początku zapisz czas startu: `date +%s > .ai/sh-run/started`.
+- Przed każdym poleceniem, które może trwać dłużej niż minutę (testy, build, instalacja zależności), sprawdź, ile minut minęło: `echo $(( ($(date +%s) - $(cat .ai/sh-run/started)) / 60 ))`.
+- **Od 18. minuty nie uruchamiasz już niczego długiego.** Commitujesz i wypychasz to, co masz, zapisujesz plik `.ai/sh-run/incomplete` z listą tego, co zostało do zrobienia, komentujesz PR tą listą i kończysz turę. Workflow sam wróci do ciebie z nowymi 30 minutami (tester zobaczy plik i odeśle pracę bez testowania).
 
-- Testy uruchamiaj w pierwszym planie, jednym poleceniem z limitem czasu: `timeout 900 scripts/test-e2e.sh`. Nigdy w tle (`run_in_background`, `&`, `nohup`).
+Co uruchamiasz, a czego nie:
+
+- **Nie uruchamiasz pełnego zestawu E2E ani nie czekasz na CI.** Pełne E2E i CI sprawdza tester, a jego FAIL i tak wraca do ciebie.
+- Uruchamiasz: lint, testy jednostkowe, integracyjne, build oraz wyłącznie te testy E2E, które sam dodałeś albo zmieniłeś, przez filtr narzędzia testowego (np. nazwa pliku albo `--grep`). Jak zawęzić E2E, opisuje `AGENTS.md`; jeśli nie opisuje, uruchom tylko pliki testów, które zmieniłeś.
+- PR otwierasz jako draft zaraz po pierwszym commicie (krok 7 niżej) i wypychasz każdy kolejny commit. Jeśli krok mimo wszystko zostanie przerwany, praca nie przepadnie.
+
+Zasady pracy w pierwszym planie:
+
+- Każde długie polecenie uruchamiaj w pierwszym planie, z limitem czasu (`timeout 600 …`). Nigdy w tle (`run_in_background`, `&`, `nohup`). Nie uruchamiaj serwerów deweloperskich ani poleceń, które czekają na wejście albo nie kończą się same (tryb watch, `npm run dev`).
 - Nie używaj `sleep` ani narzędzia Monitor.
 - Nie kończ tury, dopóki nie wypchnąłeś kodu albo nie zapisałeś `.ai/sh-run/blocked`. Nie kończ tury pytaniem.
 
 ## Przygotowanie
 
-1. Utwórz katalog `.ai/sh-run/` i dopisz linię `.ai/sh-run/` do pliku wskazanego przez `git rev-parse --git-path info/exclude`, jeśli jej tam nie ma. W worktree `.git` jest plikiem, nie katalogiem, więc nie zgaduj ścieżki.
+1. Utwórz katalog `.ai/sh-run/` i dopisz linię `.ai/sh-run/` do pliku wskazanego przez `git rev-parse --git-path info/exclude`, jeśli jej tam nie ma. W worktree `.git` jest plikiem, nie katalogiem, więc nie zgaduj ścieżki. Zapisz czas startu (`date +%s > .ai/sh-run/started`) i usuń `.ai/sh-run/incomplete`, jeśli istnieje.
 2. Ustal numer issue z treści zadania.
 3. Pobierz issue jednym poleceniem: `gh issue view {numer} --json title,body,labels,comments`. Przeczytaj wskazany fragment specyfikacji, `AGENTS.md` i `.ai/agentic.config.json` (komendy walidacji).
 4. Znajdź otwarty PR dla tego issue: `gh pr list --state open --search "{numer} in:body" --json number,headRefName,labels,body` i wybierz ten, którego opis zawiera „Closes #{numer}”.
@@ -68,7 +75,7 @@ Sprawdzaj po kolei; pierwszy pasujący wygrywa.
    - błąd: wykonaj łańcuch `om-auto-fix-issue`: `om-verify-in-repo`, `om-root-cause`, `om-fix`.
 4. **Nic do zmiany:** jeśli okaże się, że issue nie wymaga żadnej zmiany w repozytorium (błąd nie występuje, funkcja już działa, zadanie to czynność poza kodem), nie otwieraj PR. Przejdź do sekcji „Bez PR”.
 5. **Testy:** każda zmiana zachowania ma test. Każde kryterium akceptacji ma test E2E. Poprawka błędu ma test regresyjny, który bez poprawki nie przechodzi.
-6. **Walidacja:** uruchom wszystkie komendy z `validation.commands` na ostatnim commicie, w pierwszym planie. Wszystkie muszą przejść, zanim wypchniesz kod. Jeśli którejś nie da się uruchomić z powodu środowiska (Docker, uprawnienia, brak miejsca), nie wypychaj kodu: przejdź do sekcji „Problem ze środowiskiem”.
+6. **Walidacja:** na ostatnim commicie, w pierwszym planie, uruchom lint, testy jednostkowe, integracyjne i build z `validation.commands` oraz zawężone E2E tylko dla dodanych i zmienionych testów (sekcja „Praca w pierwszym planie”). Wszystkie muszą przejść, zanim oznaczysz PR jako gotowy. Pełne E2E uruchomi tester. Jeśli którejś nie da się uruchomić z powodu środowiska (Docker, uprawnienia, brak miejsca), nie wypychaj kodu: przejdź do sekcji „Problem ze środowiskiem”.
 7. **PR, od pierwszego commita:**
    - zaraz po pierwszym commicie wypchnij gałąź: `git push origin HEAD:{feat|fix}/{numer-issue}-{krotki-opis}`
    - otwórz PR jako draft z jawną gałęzią: `gh pr create --draft --head {feat|fix}/{numer-issue}-{krotki-opis} --base {gałąź bazowa} --title ... --body ...`
@@ -81,11 +88,11 @@ Sprawdzaj po kolei; pierwszy pasujący wygrywa.
 
 ## Tryb 1. Poprawki w tym przebiegu
 
-1. Przeczytaj dołączony raport albo werdykt w całości.
+1. Przeczytaj dołączony raport albo werdykt w całości. Jeśli to odesłanie z powodu niedokończonej pracy, kontynuuj listę z ostatniego komentarza „🤖 Inżynier:” w PR, a potem przejdź do kroków 6–7 trybu 4 i 5 (walidacja, oznaczenie PR jako gotowego).
 2. Jeśli werdykt mówi o konflikcie z gałęzią bazową, scal ją: `git fetch origin {gałąź bazowa}` i `git merge origin/{gałąź bazowa}`, rozwiąż konflikty z zachowaniem zmian obu stron.
 3. Napraw każdy punkt oznaczony jako blokujący. Punkty niebędące blokującymi wprowadź tylko wtedy, gdy są drobne i bezpieczne.
 4. Jeśli uważasz, że uwaga jest błędna, nie wprowadzaj jej. Skomentuj PR z uzasadnieniem; reviewer zobaczy to przy ponownej recenzji.
-5. Walidacja jak w trybie 4 i 5 (pełna, na ostatnim commicie), potem commit i push na tę samą gałąź.
+5. Walidacja jak w trybie 4 i 5 (zawężona; test, który padł u testera, uruchom osobno), potem commit i push na tę samą gałąź.
 6. Skomentuj PR listą: punkt, co zrobiono.
 7. Usuń `.ai/sh-run/test-result` i `.ai/sh-run/review-verdict`, żeby kolejne kroki zapisały świeże wyniki.
 

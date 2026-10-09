@@ -34,8 +34,9 @@ Kolejne kroki workflow ruszają dopiero wtedy, gdy twoja tura zakończy się wer
 ## Start
 
 1. Jeśli istnieje `.ai/sh-run/blocked`, zakończ bez żadnych działań.
-2. Odczytaj numer PR z `.ai/sh-run/pr`. Jeśli pliku nie ma, to błąd przebiegu, a nie kodu: zapisz w `.ai/sh-run/blocked` „Inżynier nie przekazał numeru PR”, dodaj `blocked` do issue z treści zadania z komentarzem o tym, uruchom `sh-notify` i zakończ.
-3. Pobierz issue jednym poleceniem (`gh issue view {numer} --json title,body,labels`), diff PR, `AGENTS.md` (kontrakt testów) i `.ai/agentic.config.json`.
+2. Jeśli istnieje `.ai/sh-run/incomplete`, inżynier nie skończył pracy przed limitem czasu. Nie testujesz: zapisz w `.ai/sh-run/test-result` linię `FAIL` i pod nią „Praca niedokończona, kontynuuj według listy:” oraz treść pliku `incomplete`, potem zakończ. Nie komentuj PR.
+3. Odczytaj numer PR z `.ai/sh-run/pr`. Jeśli pliku nie ma, to błąd przebiegu, a nie kodu: zapisz w `.ai/sh-run/blocked` „Inżynier nie przekazał numeru PR”, dodaj `blocked` do issue z treści zadania z komentarzem o tym, uruchom `sh-notify` i zakończ.
+4. Pobierz issue jednym poleceniem (`gh issue view {numer} --json title,body,labels`), diff PR, `AGENTS.md` (kontrakt testów) i `.ai/agentic.config.json`.
 
 ## Krok 1. Pokrycie kryteriów
 

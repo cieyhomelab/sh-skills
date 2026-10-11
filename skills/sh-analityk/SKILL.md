@@ -102,7 +102,7 @@ Sprawdź specyfikację według sekcji „Checklista”. Jeśli możesz uruchomi�
 
 ### 6. Zakończenie
 
-Napisz do właściciela krótko: link do PR, na co ma zwrócić uwagę (przede wszystkim założenia) i że merge oznacza zatwierdzenie. Zakończ zadanie.
+Napisz do właściciela krótko: link do PR, na co ma zwrócić uwagę i że merge oznacza zatwierdzenie. Dodaj blok **Doprecyzowania analityka**: najwyżej 5 najważniejszych założeń, które przyjąłeś sam (bez pytania właściciela), każde w jednym zdaniu z wpływem na produkt. Resztę założeń zostaw w specyfikacji. Zakończ zadanie.
 
 ## Tryb B
 

@@ -1,5 +1,5 @@
 flowchart TD
-    %% Autonomiczny software house: przebieg po etapie 1 (2026-10-05)
+    %% Autonomiczny software house: przebieg po zmianach z 2026-10-11
 
     classDef owner fill:#e8f0fe,stroke:#1a73e8,stroke-width:2px,color:#000
     classDef gate fill:#fff4e5,stroke:#e8710a,stroke-width:2px,color:#000
@@ -16,9 +16,9 @@ flowchart TD
     AN <-->|rundy pytań| QA
     AN --> SPECPR --> GA
 
-    OP["Przegląd co godzinę: opiekun<br/>zamyka issues, czyści etykiety, gałęzie, Docker"]:::auto
-    KR["Przegląd: kierownik tryb R<br/>R1 zgłoszenia, R2 zależności,<br/>R3 okno max 3 ready, R4 utknięta praca"]:::auto
-    KP["Przegląd: kierownik tryb P<br/>tnie specyfikację na issues planned"]:::auto
+    OP["Przegląd co godzinę: bramka (skrypt) sprawdza stan, sprząta Docker<br/>opiekun (Haiku) tylko przy zamkniętych PR"]:::auto
+    KR["Kierownik tryb R (Sonnet), tylko gdy bramka znalazła pracę<br/>R1 zgłoszenia, R2 zależności,<br/>R3 okno max 3 ready, R4 utknięta praca"]:::auto
+    KP["Planowanie: kierownik tryb P (Opus)<br/>tnie specyfikację na issues planned"]:::auto
 
     GA -->|"do godziny"| OP
     OP -->|"issue z etykietą sh-architekt"| A1["Automatyzacja: architekt"]:::auto
@@ -31,7 +31,7 @@ flowchart TD
 
     subgraph DELIVERY["Workflow sh-delivery v2: jedno issue, jeden PR, każda rola jako podtask bez limitu 30 min"]
         ING["Inżynier<br/>tryb: nowy PR / poprawki / wznowienie"]
-        TST["Tester<br/>pełne testy + E2E, CI do końca"]
+        TST["Tester<br/>pokrycie kryteriów, testy PR lokalnie,<br/>pełne E2E z CI"]
         TG{"Bramka testów"}:::gate
         REV["Reviewer, inny model<br/>bez pełnych testów, sprawdza konflikt"]
         RG{"Bramka recenzji"}:::gate

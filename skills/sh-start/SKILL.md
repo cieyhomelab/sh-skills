@@ -39,6 +39,10 @@ Sprawdź i zapisz wynik każdego punktu. Niczego nie naprawiaj sam: brak zgłoś
 | Docker | `docker ps` | bez `permission denied` |
 | GitHub | `gh auth status` | zalogowany |
 | Powiadomienia | `command -v sh-notify` | ścieżka do skryptu |
+| Token powiadomień | `test -s ~/.cezar-push/gate-token && echo jest` | `jest` |
+| Skrypt bramki przeglądu | `test -f ~/sh-skills/bin/sh-sweep-gate && echo jest` | `jest` |
+
+Bez skryptu `sh-notify` albo bez tokenu powiadomień żadne powiadomienie o bramkach nie dotrze do właściciela, choć agenci będą je „wysyłać”: zgłoś to w raporcie jako błąd konfiguracji (token powstaje po wdrożeniu endpointu `/m/push/gate` w cezar-pwa). Bez skryptu bramki przegląd w `sh-control` kończy się błędem: właściciel musi zrobić `git -C ~/sh-skills pull`.
 
 Bez Dockera tester nie uruchomi testów E2E, a bez tożsamości gita agenci nie zrobią commita. Jeśli brakuje któregoś z tych dwóch, skonfiguruj repozytorium, ale automatyzacje zostaw wyłączone i napisz to wyraźnie w raporcie.
 
@@ -138,7 +142,7 @@ Napisz właścicielowi: co dodano do repozytorium, które etykiety utworzono, li
 To repozytorium nie zawiera kodu. Służy jako miejsce, w którym działa godzinny przegląd wszystkich projektów.
 
 1. Gałąź bazowa jak w P1.
-2. `.ai/cezar/workflows/sh-sweep.yml`: skopiuj z `{login}/sh-skills`, ścieżka `workflows/sh-sweep.yml`. Gałąź, commit, push i synchronizacja głównej kopii jak w P2 (punkty 1, 3 i 4).
+2. `.ai/cezar/workflows/sh-sweep.yml`: skopiuj z `{login}/sh-skills`, ścieżka `workflows/sh-sweep.yml`. Gałąź, commit, push i synchronizacja głównej kopii jak w P2 (punkty 1, 3 i 4). Potem sprawdź jak w P2.5, że główna kopia ma `version: 2` w `sh-sweep.yml`.
 3. Automatyzacja (utwórz albo zaktualizuj, potem włącz):
 
 ```json

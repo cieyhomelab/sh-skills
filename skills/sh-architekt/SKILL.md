@@ -64,7 +64,8 @@ Postaw szkielet aplikacji w wybranym stosie. Musi zawierać:
    - `scripts/test-e2e.sh`
    - `scripts/build.sh`
 
-   Każdy skrypt kończy się kodem różnym od zera przy błędzie.
+   Każdy skrypt kończy się kodem różnym od zera przy błędzie i działa w świeżym worktree: sam doinstalowuje brakujące zależności albo uruchamia narzędzia w kontenerze. Lint i formatowanie bez zależności nie mogą „przejść” po cichu, nic nie sprawdzając.
+   `scripts/test-e2e.sh` przyjmuje filtr: ścieżki plików testów i projekt przeglądarki (np. `scripts/test-e2e.sh tests/e2e/s5.spec.ts --project mobile-webkit`), żeby agenci mogli uruchamiać tylko testy z PR.
 
 **Kontrakt `scripts/test-e2e.sh`** (od niego zależy praca testera przy kilku zadaniach równolegle):
 
@@ -74,11 +75,11 @@ Postaw szkielet aplikacji w wybranym stosie. Musi zawierać:
 - Wczytuje sekrety z pliku `${SH_SECRETS_DIR:-$HOME/.sh-secrets}/<nazwa-repozytorium>.env`, jeśli istnieje.
 - Działa bez sekretów wszędzie, gdzie to możliwe. Integracje zewnętrzne mają tryb atrapy (mock) włączany zmienną środowiskową. Testy wymagające prawdziwego API oznacz tak, żeby uruchamiały się tylko wtedy, gdy klucze są dostępne.
 
-**Sekrety:** utwórz `.env.example` z listą wszystkich zmiennych, z opisem każdej i informacją, czy jest wymagana.
+**Sekrety:** utwórz `.env.example` z listą wszystkich zmiennych, z opisem każdej i informacją, czy jest wymagana do testów, czy tylko produkcyjnie. Kierownik blokuje pracę tylko na brak zmiennych wymaganych do testów.
 
 ## Krok 4. CI
 
-Utwórz workflow GitHub Actions uruchamiany na PR i na push do gałęzi bazowej. Wywołuje skrypty z kroku 3: lint, testy jednostkowe, integracyjne i build. Testy E2E dołącz, jeśli działają bez sekretów.
+Utwórz workflow GitHub Actions uruchamiany na PR i na push do gałęzi bazowej. Wywołuje skrypty z kroku 3: lint, testy jednostkowe, integracyjne i build. Pełne testy E2E dołącz zawsze, gdy działają bez sekretów: tester traktuje CI jako źródło wyniku pełnego zestawu E2E. Obrazy kontenerów pobieraj tak, żeby limit anonimowych pobrań Docker Hub (`429`) nie psuł CI: z innego rejestru (np. `ghcr.io`, `public.ecr.aws`, `mirror.gcr.io`) albo z logowaniem do Docker Hub, gdy właściciel poda sekret w repozytorium.
 
 ## Krok 5. Pipeline agentów
 
@@ -89,6 +90,8 @@ Utwórz workflow GitHub Actions uruchamiany na PR i na push do gałęzi bazowej.
    - stos i link do ADR
    - strukturę katalogów i gdzie co dodawać
    - komendy z kroku 3 i kontrakt testów E2E
+   - przygotowanie świeżego worktree (jedno polecenie, np. instalacja zależności) i dokładną składnię uruchamiania wybranych plików E2E na wybranych projektach przeglądarek, z przykładem
+   - które testy wolno ograniczyć do części przeglądarek i jak to oznaczyć (inżynier nie pomija testów poza tym, co tu opiszesz)
    - konwencje: nazewnictwo, obsługa błędów, logowanie, migracje bazy
    - zasadę: każda zmiana w zachowaniu ma test; każdy scenariusz ze specyfikacji ma test E2E
    - konwencję sekretów
@@ -107,9 +110,9 @@ Zastąp sekcję „Sekcje techniczne” w specyfikacji następującymi podsekcja
 
 ## Krok 7. Weryfikacja
 
-Testy uruchamiasz w pierwszym planie, każde polecenie z limitem czasu (`timeout 900 …`). Nigdy w tle, bez `sleep` i bez narzędzia Monitor. Na CI czekasz poleceniem `timeout 1200 gh pr checks {numer PR} --watch --fail-fast`. Tury nie kończysz czekaniem ani pytaniem.
+**Długie polecenia.** Narzędzie Bash przenosi w tło każde polecenie dłuższe niż jego limit: domyślnie 2 minuty, najwyżej 10. Przy poleceniu, które może trwać dłużej niż 2 minuty, ustaw parametr `timeout` narzędzia Bash na `600000`, a w samym poleceniu `timeout 540 …`. Na CI czekasz porcjami: `timeout 540 gh pr checks {numer PR} --repo {repo} --watch --fail-fast`, najwyżej 4 razy pod rząd. Polecenie dłuższe niż 9 minut uruchamiasz z wyjściem do pliku z `mktemp` (`nohup bash -c '{polecenie}; echo "EXIT=$?"' > "$log" 2>&1 & echo $! > "$log.pid"`) i czekasz porcjami `timeout 540 tail --pid="$(cat "$log.pid")" -f /dev/null`. Bez `sleep`, narzędzia Monitor i `pgrep`. Tury nie kończysz czekaniem ani pytaniem.
 
-**Tryb S bez zmian w kodzie, skryptach i infrastrukturze** (PR zmienia wyłącznie dokumenty: specyfikację, ADR, `AGENTS.md`, `CODE_REVIEW.md`): punkty 1 i 2 z listy poniżej pomijasz, bo kod i testy są identyczne z gałęzią bazową, którą CI już sprawdziło. Wystarczy zielone CI dla twojego PR (punkt 3 poniżej). W opisie PR napisz „Weryfikacja: tylko CI, PR zmienia wyłącznie dokumenty”.
+**Tryb S bez zmian w kodzie, skryptach i infrastrukturze** (PR zmienia wyłącznie dokumenty: specyfikację, ADR, `AGENTS.md`, `CODE_REVIEW.md`): nie uruchamiasz niczego lokalnie, ani skryptów, ani E2E, bo kod i testy są identyczne z gałęzią bazową. Wystarczy zielone CI dla twojego PR (punkt 3 poniżej). W opisie PR napisz „Weryfikacja: tylko CI, PR zmienia wyłącznie dokumenty”.
 
 W pozostałych przypadkach, na czystym klonie swojej gałęzi:
 

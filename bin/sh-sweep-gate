@@ -1,0 +1,221 @@
+#!/usr/bin/env bash
+# sh-sweep-gate — bramka godzinnego przeglądu (workflow sh-sweep).
+#
+# Sama, bez agentów:
+#   1. sprząta zasoby Dockera e2e-* starsze niż 6 godzin,
+#   2. ustala projekty zarządzane (repozytoria z .ai/cezar/workflows/sh-delivery.yml),
+#   3. sprawdza STAN projektów na GitHubie i decyduje, które role mają pracę.
+#
+# Wynik w bieżącym katalogu (worktree przeglądu), w .ai/sh-run/:
+#   projects   lista projektów zarządzanych (owner/repo w wierszu)
+#   caretaker  PR do obsłużenia przez opiekuna (owner/repo#numer w wierszu)
+#   planner    PR architektury do zaplanowania (owner/repo#numer w wierszu)
+#   manager    powody przeglądu kierownika (jeden w wierszu)
+# Na początku wyjścia linie "URUCHOM: OPIEKUN|PLANOWANIE|KIEROWNIK", które czytają węzły workflow.
+# Błąd GitHuba kończy bramkę kodem 1 (przebieg widoczny jako nieudany), nigdy fałszywym „brak pracy”.
+#
+# Zmienne: SH_OWNER (domyślnie konto gh), SH_SECRETS_DIR (domyślnie ~/.sh-secrets),
+# SH_FULL_HOUR (godzina UTC codziennego pełnego przeglądu, domyślnie 6),
+# SH_STATE_DIR (stan między przeglądami, domyślnie ~/.cache/sh-sweep).
+set -u
+
+out=.ai/sh-run
+mkdir -p "$out"
+if ex=$(git rev-parse --git-path info/exclude 2>/dev/null); then
+  grep -qx '.ai/sh-run/' "$ex" 2>/dev/null || echo '.ai/sh-run/' >> "$ex"
+fi
+rm -f "$out/projects" "$out/caretaker" "$out/planner" "$out/manager"
+log=$(mktemp)   # szczegóły; wypisywane po decyzji
+
+now=$(date -u +%s)
+iso() { date -u -d "@$1" +%Y-%m-%dT%H:%M:%SZ; }
+since70=$(iso $((now - 70 * 60)))
+since180=$(iso $((now - 180 * 60)))
+since6h=$(iso $((now - 6 * 3600)))
+since7d=$(iso $((now - 7 * 86400)))
+since30d=$(iso $((now - 30 * 86400)))
+
+fatal() { echo "Błąd bramki: $*"; cat "$log"; exit 1; }
+
+# Data z Dockera (RFC3339 albo "2026-10-11 12:00:00.123 +0000 UTC") na sekundy; pusto, gdy się nie da.
+to_epoch() {
+  local s
+  s=$(printf '%s' "$1" | sed -E 's/\.[0-9]+//; s/ [A-Z]{2,5}$//')
+  date -u -d "$s" +%s 2>/dev/null
+}
+
+# ---------- 1. Docker ----------
+clean_docker() {
+  command -v docker >/dev/null 2>&1 || { echo "Docker: brak polecenia docker, sprzątanie pominięte."; return; }
+  if ! docker ps >/dev/null 2>&1; then
+    echo "Docker: brak dostępu, sprzątanie pominięte."
+    return
+  fi
+  local limit=$((6 * 3600)) n=0 id name c t
+  old() { t=$(to_epoch "$1"); [ -n "$t" ] && [ $((now - t)) -gt "$limit" ]; }
+  while read -r id name; do
+    case "$name" in e2e-*) ;; *) continue;; esac
+    c=$(docker inspect -f '{{.Created}}' "$id" 2>/dev/null) || continue
+    if old "$c" && docker rm -f "$id" >/dev/null 2>&1; then n=$((n + 1)); fi
+  done < <(docker ps -a --filter name=e2e- --format '{{.ID}} {{.Names}}')
+  while read -r id name; do
+    case "$name" in e2e-*) ;; *) continue;; esac
+    c=$(docker network inspect -f '{{.Created}}' "$id" 2>/dev/null) || continue
+    if old "$c" && docker network rm "$id" >/dev/null 2>&1; then n=$((n + 1)); fi
+  done < <(docker network ls --filter name=e2e- --format '{{.ID}} {{.Name}}')
+  while read -r name; do
+    case "$name" in e2e-*) ;; *) continue;; esac
+    c=$(docker volume inspect -f '{{.CreatedAt}}' "$name" 2>/dev/null) || continue
+    # Wolumenu używanego przez kontener Docker nie usunie; to jest w porządku.
+    if old "$c" && docker volume rm "$name" >/dev/null 2>&1; then n=$((n + 1)); fi
+  done < <(docker volume ls --filter name=e2e- --format '{{.Name}}')
+  echo "Docker: usunięte zasoby e2e-* starsze niż 6 godzin: $n."
+}
+clean_docker >> "$log"
+
+# ---------- 2. Projekty zarządzane ----------
+owner=${SH_OWNER:-$(gh api user -q .login 2>/dev/null)}
+[ -n "$owner" ] || fatal "gh nie zwrócił konta (sprawdź gh auth status)."
+repos=$(gh repo list "$owner" --limit 200 --json nameWithOwner -q '.[].nameWithOwner' 2>/dev/null) \
+  || fatal "gh repo list nie działa."
+[ -n "$repos" ] || fatal "gh repo list nie zwrócił repozytoriów konta $owner."
+: > "$out/projects"
+for r in $repos; do
+  if gh api "repos/$r/contents/.ai/cezar/workflows/sh-delivery.yml" --silent >/dev/null 2>&1; then
+    echo "$r" >> "$out/projects"
+  fi
+done
+echo "Projekty zarządzane: $(tr '\n' ' ' < "$out/projects")" >> "$log"
+
+# ---------- 3. Stan projektów ----------
+: > "$out/caretaker"; : > "$out/planner"; : > "$out/manager"
+reason() { echo "$1" >> "$out/manager"; }
+waiting=0       # issues z ready bez in-progress i bez blocked we wszystkich projektach
+candidates=""   # kandydaci do wypuszczenia (planned, bez blocked, zależności zamknięte)
+fingerprint=""  # stan okna; kierownik dostaje powód „okno” tylko, gdy się zmienił
+secrets_dir=${SH_SECRETS_DIR:-$HOME/.sh-secrets}
+state_dir=${SH_STATE_DIR:-$HOME/.cache/sh-sweep}
+
+# Etykiety w tabelach są w postaci ",a,b," (nigdy puste: read z IFS=tab łączy puste pola).
+# Etykiety stanu: issue bez żadnej z nich i bez znaczników to nowe zgłoszenie (R1).
+state_re='^(planned|ready|in-progress|blocked|sh-architekt|spec-gap)$'
+
+while read -r r; do
+  [ -n "$r" ] || continue
+  name=${r#*/}
+
+  # --- issues ---
+  issues=$(gh issue list --repo "$r" --state open --limit 300 --json number,labels,body,updatedAt \
+    --jq '.[] | [ (.number|tostring), ("," + ([.labels[].name] | join(",")) + ","), .updatedAt,
+                  ((.body // "") | test("<!-- *sh-spec:") | tostring),
+                  ((.body // "") | test("<!-- *sh-secrets") | tostring),
+                  ([(.body // "") | match("<!-- *sh-depends: *([0-9, ]*)-->") | .captures[0].string][0] // "") ] | @tsv') \
+    || fatal "gh issue list nie działa dla $r."
+  open_nums=" $(printf '%s\n' "$issues" | cut -f1 | tr '\n' ' ') "
+  blocked_nums=" $(printf '%s\n' "$issues" | awk -F'\t' '$2 ~ /,blocked,/ {print $1}' | tr '\n' ' ') "
+
+  # --- otwarte PR: numer, etykiety, ostatnia zmiana, issues, których dotyczą ---
+  prs=$(gh pr list --repo "$r" --state open --limit 100 --json number,labels,updatedAt,body,headRefName \
+    --jq '.[] | [ (.number|tostring), ("," + ([.labels[].name] | join(",")) + ","), .updatedAt,
+                  ( ([(.body // "") | scan("[Cc]loses #([0-9]+)") | .[0]]
+                     + [.headRefName | match("^(?:feat|fix)/([0-9]+)-") | .captures[0].string]) | unique | join(" ") ) ] | @tsv') \
+    || fatal "gh pr list nie działa dla $r."
+  pr_issue_nums=" "
+  stuck=""
+  while IFS=$'\t' read -r num labels updated refs; do
+    [ -n "$num" ] || continue
+    pr_issue_nums="$pr_issue_nums$refs "
+    [ -n "$refs" ] || continue   # PR spoza software house'u
+    case "$labels" in *,blocked,*|*,merge-queue,*|*,spec,*|*,architecture,*) continue;; esac
+    skip=0
+    for i in $refs; do case "$blocked_nums" in *" $i "*) skip=1;; esac; done
+    [ "$skip" = 1 ] && continue
+    [[ "$updated" < "$since180" ]] && stuck="$stuck $num"
+  done <<< "$prs"
+  [ -n "$stuck" ] && reason "$r: PR bez ruchu od 3 godzin:$stuck"
+
+  # --- zamknięte PR bez sh-posprzatane (opiekun) i merge'e z ostatniej godziny ---
+  gh pr list --repo "$r" --state all --limit 100 --json number,state,closedAt,labels \
+    --jq ".[] | select(.state != \"OPEN\") | select(.closedAt > \"$since7d\")
+          | select([.labels[].name] | index(\"sh-posprzatane\") | not) | \"$r#\(.number)\"" \
+    >> "$out/caretaker" 2>/dev/null || fatal "gh pr list (zamknięte) nie działa dla $r."
+  m=$(gh pr list --repo "$r" --state merged --limit 50 --json number,mergedAt \
+        --jq "[.[] | select(.mergedAt > \"$since70\") | .number] | map(tostring) | join(\",\")") \
+    || fatal "gh pr list (zmergowane) nie działa dla $r."
+  [ -n "$m" ] && reason "$r: zmergowane PR $m"
+
+  # --- PR architektury bez komentarza kierownika: Tryb P ---
+  gh pr list --repo "$r" --state merged --label architecture --limit 20 --json number,mergedAt,comments \
+    --jq ".[] | select(.mergedAt > \"$since30d\")
+          | select([.comments[].body | select(startswith(\"🤖 Kierownik:\"))] | length == 0)
+          | \"$r#\(.number)\"" >> "$out/planner" || fatal "gh pr list (architektura) nie działa dla $r."
+
+  # --- zdjęte blocked w ostatniej godzinie (decyzja właściciela) ---
+  unb=$(gh api "repos/$r/issues/events?per_page=100" \
+        --jq "[.[] | select(.event == \"unlabeled\" and .label.name == \"blocked\" and .created_at > \"$since70\") | .issue.number | tostring] | unique | join(\" \")" 2>/dev/null)
+  for i in $unb; do
+    case "$open_nums" in *" $i "*) reason "$r: zdjęto blocked z #$i";; esac
+  done
+
+  # --- issues: R1, R2, R3, R4 ---
+  while IFS=$'\t' read -r num labels updated has_spec has_secrets deps; do
+    [ -n "$num" ] || continue
+    has() { case "$labels" in *",$1,"*) return 0;; *) return 1;; esac; }
+
+    st=0
+    for l in ${labels//,/ }; do [[ "$l" =~ $state_re ]] && st=1; done
+    if [ "$st" = 0 ] && [ "$has_spec" = false ] && [ "$has_secrets" = false ]; then
+      reason "$r: nowe zgłoszenie #$num"
+    fi
+
+    if [ "$has_secrets" = true ] && [ -n "$(find "$secrets_dir/$name.env" -mmin -70 2>/dev/null)" ]; then
+      reason "$r: zmieniony plik sekretów, issue #$num"
+    fi
+
+    if has ready && ! has in-progress && ! has blocked; then
+      waiting=$((waiting + 1)); fingerprint="$fingerprint r$r#$num"
+    fi
+    if has planned && ! has blocked; then
+      ok=1
+      for d in ${deps//,/ }; do case "$open_nums" in *" $d "*) ok=0;; esac; done
+      if [ "$ok" = 1 ]; then candidates="$candidates $r#$num"; fingerprint="$fingerprint c$r#$num"; fi
+    fi
+
+    if has in-progress && ! has blocked && [[ "$updated" < "$since6h" ]]; then
+      case "$pr_issue_nums" in *" $num "*) ;; *) reason "$r: issue #$num w toku bez PR i bez ruchu od 6 godzin";; esac
+    fi
+  done <<< "$issues"
+  fingerprint="$fingerprint pr:$(printf '%s\n' "$prs" | cut -f1 | tr '\n' ',')"
+done < "$out/projects"
+
+# Okno: kierownik tylko wtedy, gdy jest miejsce i kandydaci, a stan okna zmienił się od poprzedniego przeglądu.
+mkdir -p "$state_dir" 2>/dev/null
+prev=$(cat "$state_dir/window" 2>/dev/null)
+if [ -n "$candidates" ] && [ "$waiting" -lt 3 ] && [ "$fingerprint" != "$prev" ]; then
+  reason "okno: $waiting z 3 zajęte, kandydaci:$candidates"
+fi
+printf '%s' "$fingerprint" > "$state_dir/window" 2>/dev/null
+
+full=${SH_FULL_HOUR:-6}
+[ "$(date -u +%-H)" = "$full" ] && reason "codzienny pełny przegląd"
+
+# Planowanie zawsze kończy się przeglądem kierownika (wypuszczenie nowych issues).
+[ -s "$out/planner" ] && reason "zaplanowano specyfikację: $(tr '\n' ' ' < "$out/planner")"
+
+# ---------- 4. Decyzja (linie URUCHOM na początku wyjścia) ----------
+[ -s "$out/caretaker" ] || rm -f "$out/caretaker"
+[ -s "$out/planner" ] || rm -f "$out/planner"
+[ -s "$out/manager" ] || rm -f "$out/manager"
+
+[ -f "$out/caretaker" ] && echo "URUCHOM: OPIEKUN"
+[ -f "$out/planner" ] && echo "URUCHOM: PLANOWANIE"
+[ -f "$out/manager" ] && echo "URUCHOM: KIEROWNIK"
+if [ ! -f "$out/caretaker" ] && [ ! -f "$out/planner" ] && [ ! -f "$out/manager" ]; then
+  echo "Brak pracy dla agentów."
+fi
+cat "$log"
+[ -f "$out/caretaker" ] && echo "Opiekun: $(tr '\n' ' ' < "$out/caretaker")"
+[ -f "$out/planner" ] && echo "Planowanie: $(tr '\n' ' ' < "$out/planner")"
+[ -f "$out/manager" ] && { echo "Kierownik:"; sed 's/^/  - /' "$out/manager"; }
+rm -f "$log"
+exit 0

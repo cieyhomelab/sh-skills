@@ -1,45 +1,91 @@
 # Workflow Cezara uruchamiany co godzinę przez automatyzację w repozytorium sh-control.
-# Cezar nie ma zdarzenia "PR zmergowany", więc merge'e wykrywa ten przegląd:
-# bramka sprawdza, czy od ostatniego przeglądu coś się zmieniło; jeśli nie,
-# opiekun tylko sprząta VPS, a kierownik kończy od razu.
-# Co 6 godzin przegląd jest pełny niezależnie od zmian (wykrywanie utkniętej pracy).
+#
+# Bramka (skrypt ~/sh-skills/bin/sh-sweep-gate, bez agenta) sprząta Dockera,
+# ustala projekty zarządzane i sprawdza ich STAN na GitHubie. Agent startuje
+# tylko wtedy, gdy bramka znalazła dla niego pracę:
+#   opiekun (Haiku)       zamknięte PR bez sh-posprzatane
+#   planowanie (Opus)     zmergowana architektura bez planu kierownika (Tryb P)
+#   kierownik (Sonnet)    nowe zgłoszenia, wolne miejsce w oknie, utknięta praca,
+#                         merge w ostatniej godzinie, codziennie o 6:00 UTC
+# Gdy nic nie zachodzi, przegląd kończy się bez żadnego agenta.
 #
 # Uruchamiać z flagą Autonomous.
 
+version: 2
 name: sh-sweep
-description: Godzinny przegląd wszystkich projektów. Opiekun obsługuje zamknięte PR, kierownik planuje i wypuszcza pracę.
-steps:
+description: Godzinny przegląd wszystkich projektów. Bramka sprawdza stan; opiekun, planowanie i kierownik startują tylko, gdy mają pracę.
+
+nodes:
+  - id: start
+    type: start
+
   - id: gate
+    type: check
     name: Bramka przeglądu
-    command: |
-      mkdir -p .ai/sh-run
-      ex=$(git rev-parse --git-path info/exclude)
-      grep -qx '.ai/sh-run/' "$ex" 2>/dev/null || echo '.ai/sh-run/' >> "$ex"
-      rm -f .ai/sh-run/idle
-      h=$(date +%-H)
-      if [ $((h % 6)) -eq 0 ]; then echo "Pełny przegląd (co 6 godzin)."; exit 0; fi
-      owner=$(gh api user -q .login) || exit 0
-      since=$(date -u -d '-70 minutes' +%Y-%m-%dT%H:%M:%SZ)
-      p=$(gh search prs --owner "$owner" --updated ">=$since" --limit 1 --json number --jq length 2>/dev/null)
-      i=$(gh search issues --owner "$owner" --updated ">=$since" --limit 1 --json number --jq length 2>/dev/null)
-      old=$(date -u -d '-90 minutes' +%Y-%m-%dT%H:%M:%SZ)
-      s=$(gh search prs --owner "$owner" --state open --label review --updated "<$old" --limit 1 --json number --jq length 2>/dev/null)
-      c=$(gh search prs --owner "$owner" --state open --label changes-requested --updated "<$old" --limit 1 --json number --jq length 2>/dev/null)
-      if [ "${p:-0}" = "0" ] && [ "${i:-0}" = "0" ] && [ "${s:-0}" = "0" ] && [ "${c:-0}" = "0" ]; then
-        echo "Brak zmian od ostatniego przeglądu." | tee .ai/sh-run/idle
-      else
-        echo "Wykryto zmiany, pełny przegląd."
-      fi
-      exit 0
+    command: bash "$HOME/sh-skills/bin/sh-sweep-gate"
+
+  - id: need-caretaker
+    type: if
+    name: Praca dla opiekuna?
+    condition: { kind: output, ref: gate.output, op: contains, value: "URUCHOM: OPIEKUN" }
 
   - id: caretaker
+    type: agent
     name: Opiekun
-    prompt: "Tryb S. Przegląd zamkniętych PR na koncie właściciela."
     skill: sh-opiekun
     model: haiku
+    prompt: "Tryb S. Obsłuż zamknięte PR wypisane w pliku .ai/sh-run/caretaker."
 
-  - id: manager
-    name: Kierownik
-    prompt: "Tryb R. Przegląd wszystkich projektów."
+  - id: need-planner
+    type: if
+    name: Specyfikacja do zaplanowania?
+    condition: { kind: output, ref: gate.output, op: contains, value: "URUCHOM: PLANOWANIE" }
+
+  - id: planner
+    type: agent
+    name: Planowanie
     skill: sh-kierownik
     model: opus
+    prompt: "Tryb P. Zaplanuj PR architektury wypisane w pliku .ai/sh-run/planner. Wykonaj tylko tryb P, bez trybu R: przegląd zrobi następny krok."
+
+  - id: need-manager
+    type: if
+    name: Praca dla kierownika?
+    condition: { kind: output, ref: gate.output, op: contains, value: "URUCHOM: KIEROWNIK" }
+
+  - id: manager
+    type: agent
+    name: Kierownik
+    skill: sh-kierownik
+    model: sonnet
+    prompt: "Tryb R. Przegląd wszystkich projektów. Powody wskazane przez bramkę są w pliku .ai/sh-run/manager."
+
+  - id: done
+    type: end
+    name: Przegląd zakończony
+    status: success
+
+  - id: gate-failed
+    type: end
+    name: Bramka nie zadziałała
+    status: failed
+
+edges:
+  - { from: start, to: gate }
+  - { from: gate.pass, to: need-caretaker }
+  - { from: gate.fail, to: gate-failed }
+
+  - { from: need-caretaker.true, to: caretaker }
+  - { from: need-caretaker.false, to: need-planner }
+  - { from: caretaker.done, to: need-planner }
+  - { from: caretaker.failed, to: need-planner }
+
+  - { from: need-planner.true, to: planner }
+  - { from: need-planner.false, to: need-manager }
+  - { from: planner.done, to: need-manager }
+  - { from: planner.failed, to: need-manager }
+
+  - { from: need-manager.true, to: manager }
+  - { from: need-manager.false, to: done }
+  - { from: manager.done, to: done }
+  - { from: manager.failed, to: done }

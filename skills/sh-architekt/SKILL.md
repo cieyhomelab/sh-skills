@@ -37,6 +37,7 @@ Ustal tryb na podstawie repozytorium:
 1. Znajdź zatwierdzoną specyfikację. Zwykle uruchamia cię issue z etykietą `sh-architekt`, utworzone przez opiekuna po merge'u PR ze specyfikacją; ścieżka specyfikacji i link do tego PR są w treści issue. Jeśli zadanie nie wskazuje issue ani pliku, weź ostatnio zmergowany plik w katalogu specyfikacji (`paths.specs` z `.ai/agentic.config.json` albo `.ai/specs`).
 2. Przeczytaj ją w całości. Wypisz dla siebie: platformy, role, integracje zewnętrzne, dane osobowe, wymagania niefunkcjonalne, etapy dostarczenia.
 3. W trybie S przeczytaj `AGENTS.md`, istniejące decyzje w `docs/adr/` i strukturę kodu.
+4. Jeśli projekt korzysta z platformy, której kod albo dokumentacja jest dostępna (np. orkiestrator, sidecar, cudze API), sprawdź w źródle każdą trasę, format i zachowanie, na którym opierasz decyzje, i zapisz w ADR ścieżkę źródła. Atrapy w testach odwzorowują te kontrakty, z odwołaniem do źródła w komentarzu.
 
 ## Krok 2. Wybór stosu
 
@@ -131,7 +132,15 @@ W pozostałych przypadkach, na czystym klonie swojej gałęzi:
    - sekcja **Wymagane sekrety**: zmienne, które właściciel musi dodać do pliku sekretów przed merge'em, albo „brak”
    - zdanie: „Merge tego PR odblokowuje kierownika (bramka D).”
    - „Closes #{numer}”, jeśli uruchomiło cię issue z etykietą `sh-architekt`
-4. Uruchom `sh-notify merge {owner/repo} {numer PR}`. Nie merguj. Zakończ zadanie.
+4. Jeśli możesz uruchomić subagenta, zleć mu niezależny przegląd PR na innym modelu niż Twój, ze świeżym kontekstem. Przekaż mu tylko numer PR i ścieżkę specyfikacji, bez kontekstu swojej pracy. Ma sprawdzić:
+   - zgodność stosu z kryteriami z kroku 2 i ze specyfikacją, w tym fakty o platformach ze źródła (krok 1, pkt 4);
+   - kompletność checklisty przed zakończeniem;
+   - kontrakt `scripts/test-e2e.sh`;
+   - brak sekretów w repozytorium;
+   - brak zaimplementowanych funkcji ze specyfikacji.
+
+   Popraw to, co znajdzie, i dopisz do opisu PR sekcję **Przegląd niezależny** z listą uwag i tym, jak je rozwiązano (albo „bez uwag”).
+5. Uruchom `sh-notify merge {owner/repo} {numer PR}`. Nie merguj. Zakończ zadanie.
 
 ## Eskalacja
 
@@ -146,7 +155,8 @@ Sposób: otwórz PR jako draft z tym, co udało się zrobić, dodaj etykietę `b
 
 ## Checklista przed zakończeniem
 
-- [ ] ADR zapisany, z alternatywami.
+- [ ] ADR zapisany, z alternatywami i ze ścieżkami źródeł dla faktów o platformach.
+- [ ] Przegląd niezależny wykonany (jeśli był dostępny subagent), sekcja w opisie PR.
 - [ ] Wszystkie pięć skryptów działa na czystym klonie.
 - [ ] Dwa równoległe przebiegi E2E przechodzą i nic po sobie nie zostawiają (nie dotyczy PR z samymi dokumentami).
 - [ ] CI zielone.
